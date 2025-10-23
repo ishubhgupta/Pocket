@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Lock } from 'lucide-react';
+import { Logo } from '../components/Logo';
 
 export const SetupPage: React.FC = () => {
   const [pin, setPin] = useState('');
@@ -33,68 +33,79 @@ export const SetupPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-500 via-primary-600 to-indigo-600 flex items-center justify-center p-4">
-      <div className="max-w-md w-full glass-effect backdrop-blur-2xl rounded-3xl shadow-2xl p-10 border border-white/20 animate-scale-in">
-        <div className="flex flex-col items-center mb-10">
-          <div className="w-28 h-28 bg-white/10 backdrop-blur-sm rounded-full flex items-center justify-center mb-6 shadow-xl animate-unlock">
-            <Lock size={56} className="text-white" strokeWidth={2.5} />
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-blue-50 to-purple-50 flex items-center justify-center p-4">
+      <div className="max-w-md w-full animate-fade-in">
+        {/* Logo */}
+        <div className="flex justify-center mb-8">
+          <div className="w-24 h-24 bg-white rounded-full shadow-md flex items-center justify-center">
+            <Logo variant="icon" size={48} />
           </div>
-          <h1 className="text-4xl font-bold text-white font-heading mb-3">Welcome to Pocket</h1>
-          <p className="text-white/85 text-center leading-relaxed text-lg">
+        </div>
+
+        {/* Header */}
+        <div className="text-center mb-6">
+          <h1 className="text-3xl font-bold text-neutral-800 font-heading mb-2">
+            Welcome to Pocket
+          </h1>
+          <p className="text-neutral-600 text-sm">
             Create a secure PIN to protect your data
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="animate-slide-up">
-            <label className="block text-sm font-semibold text-white/90 mb-3">
-              Create PIN
-            </label>
-            <input
-              type="password"
-              inputMode="numeric"
-              value={pin}
-              onChange={(e) => setPin(e.target.value)}
-              className="w-full px-4 py-5 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-2xl text-white text-center text-4xl tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/30 placeholder-white/30 transition-all font-heading"
-              placeholder="••••"
-              maxLength={6}
-              required
-            />
-          </div>
-
-          <div className="animate-slide-up" style={{ animationDelay: '100ms' }}>
-            <label className="block text-sm font-semibold text-white/90 mb-3">
-              Confirm PIN
-            </label>
-            <input
-              type="password"
-              inputMode="numeric"
-              value={confirmPin}
-              onChange={(e) => setConfirmPin(e.target.value)}
-              className="w-full px-4 py-5 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-2xl text-white text-center text-4xl tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/30 placeholder-white/30 transition-all font-heading"
-              placeholder="••••"
-              maxLength={6}
-              required
-            />
-          </div>
-
-          {error && (
-            <div className="px-5 py-4 bg-red-500/20 backdrop-blur-sm border-2 border-red-400/30 rounded-2xl text-red-100 text-sm font-semibold animate-shake">
-              {error}
+        {/* Form Card */}
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-neutral-600 mb-1.5">
+                Create PIN
+              </label>
+              <input
+                type="password"
+                inputMode="numeric"
+                value={pin}
+                onChange={(e) => setPin(e.target.value)}
+                className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-lg text-neutral-900 text-center text-xl tracking-widest focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                placeholder="••••••"
+                maxLength={6}
+                required
+                autoFocus
+              />
             </div>
-          )}
 
-          <button
-            type="submit"
-            className="w-full py-5 bg-white hover:bg-white/90 text-primary-700 font-bold rounded-2xl transition-all hover:scale-105 active:scale-95 shadow-xl font-heading text-lg"
-          >
-            Create Vault
-          </button>
-        </form>
+            <div>
+              <label className="block text-xs font-medium text-neutral-600 mb-1.5">
+                Confirm PIN
+              </label>
+              <input
+                type="password"
+                inputMode="numeric"
+                value={confirmPin}
+                onChange={(e) => setConfirmPin(e.target.value)}
+                className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-lg text-neutral-900 text-center text-xl tracking-widest focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                placeholder="•••••• "
+                maxLength={6}
+                required
+              />
+            </div>
 
-        <div className="mt-8 text-center text-sm text-white/75 space-y-1.5">
-          <p>🔒 AES-256 encryption • 100% offline</p>
-          <p>✨ Your data never leaves your device</p>
+            {error && (
+              <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs animate-shake">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg transition-colors shadow-sm"
+            >
+              Continue
+            </button>
+          </form>
+        </div>
+
+        {/* Footer Info */}
+        <div className="mt-4 text-center text-xs text-neutral-500">
+          <p>🔒 Your data is encrypted and stored locally</p>
         </div>
       </div>
     </div>
