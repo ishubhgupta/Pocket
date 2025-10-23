@@ -1,0 +1,344 @@
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { useVault } from '../contexts/VaultContext';
+import { storageService } from '../services/storage.service';
+import { dataPortabilityService } from '../services/dataPortability.service';
+import { ArrowLeft, Download, Upload, Trash2, Lock, Info, Shield } from 'lucide-react';
+import { Modal } from '../components/Modal';
+import { Toast } from '../components/Toast';
+
+export const SettingsPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { lock, getMasterKey } = useAuth();
+  const { privateRecords, publicRecords } = useVault();
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+
+  const totalRecords = privateRecords.length + publicRecords.length;
+  const privateCount = privateRecords.length;
+  const publicCount = publicRecords.length;
+
+  const handleExport = async () => {
+    try {
+      await dataPortabilityService.exportData();
+      setToast({ message: 'Backup exported successfully!', type: 'success' });
+    } catch (error) {
+      console.error('Export error:', error);
+      setToast({ message: 'Failed to export backup', type: 'error' });
+    }
+  };
+
+  const handleExportEncrypted = async () => {
+    try {
+      const masterKey = getMasterKey();
+      if (!masterKey) {
+        setToast({ message: 'Please unlock the vault first', type: 'error' });
+        return;
+      }
+
+      await dataPortabilityService.exportEncryptedBackup(masterKey);
+      setToast({ message: 'Encrypted backup exported successfully!', type: 'success' });
+    } catch (error) {
+      console.error('Encrypted export error:', error);
+      setToast({ message: 'Failed to export encrypted backup', type: 'error' });
+    }
+  };
+
+  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    
+    try {
+      const result = await dataPortabilityService.importData(file);
+
+      if (!result.success || result.errors.length > 0) {
+        const errorMsg = result.errors.join(', ') || 'Unknown error';
+        setToast({ 
+          message: `Import completed with errors: ${errorMsg}. Imported: ${result.imported}, Skipped: ${result.skipped}`, 
+          type: 'error' 
+        });
+      } else {
+        setToast({ 
+          message: `Successfully imported ${result.imported} record(s). Skipped ${result.skipped} duplicate(s). Please reload.`, 
+          type: 'success' 
+        });
+        setTimeout(() => window.location.reload(), 2000);
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+      setToast({ message: 'Failed to import backup. Invalid file format.', type: 'error' });
+    } finally {
+      setIsImporting(false);
+      event.target.value = '';
+    }
+  };
+
+  const handleImportEncrypted = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+
+    try {
+      const masterKey = getMasterKey();
+      if (!masterKey) {
+        setToast({ message: 'Please unlock the vault first', type: 'error' });
+        setIsImporting(false);
+        event.target.value = '';
+        return;
+      }
+
+      const result = await dataPortabilityService.importEncryptedBackup(file, masterKey);
+
+      if (!result.success || result.errors.length > 0) {
+        const errorMsg = result.errors.join(', ') || 'Unknown error';
+        setToast({ 
+          message: `Import completed with errors: ${errorMsg}. Imported: ${result.imported}, Skipped: ${result.skipped}`, 
+          type: 'error' 
+        });
+      } else {
+        setToast({ 
+          message: `Successfully imported ${result.imported} record(s). Skipped ${result.skipped} duplicate(s). Please reload.`, 
+          type: 'success' 
+        });
+        setTimeout(() => window.location.reload(), 2000);
+      }
+    } catch (error) {
+      console.error('Encrypted import error:', error);
+      setToast({ message: 'Failed to import encrypted backup. Check your PIN and file.', type: 'error' });
+    } finally {
+      setIsImporting(false);
+      event.target.value = '';
+    }
+  };
+
+  const handleClearAll = async () => {
+    try {
+      await storageService.clearAll();
+      setToast({ message: 'All data cleared. Redirecting...', type: 'success' });
+      setTimeout(() => window.location.reload(), 1500);
+    } catch {
+      setToast({ message: 'Failed to clear data', type: 'error' });
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-neutral-100 to-neutral-200">
+      {/* Header */}
+      <div className="glass-effect border-b border-neutral-200/50 sticky top-0 z-10 backdrop-blur-xl">
+        <div className="max-w-4xl mx-auto px-4 py-5">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate(-1)}
+              className="p-2 hover:bg-neutral-200/50 rounded-xl transition-all hover:scale-105 active:scale-95"
+            >
+              <ArrowLeft size={24} className="text-neutral-700" />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-neutral-900 font-heading">Settings</h1>
+              <p className="text-sm text-neutral-600">Manage your vault</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="max-w-4xl mx-auto px-4 py-6 space-y-5 animate-fade-in">
+        {/* Statistics */}
+        <div className="card">
+          <h2 className="text-lg font-semibold text-neutral-900 mb-5 font-heading">📊 Vault Statistics</h2>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center p-4 glass-effect rounded-xl">
+              <div className="text-4xl font-bold bg-gradient-to-r from-primary-600 to-primary-700 bg-clip-text text-transparent font-heading">{totalRecords}</div>
+              <div className="text-sm text-neutral-600 mt-2 font-medium">Total Records</div>
+            </div>
+            <div className="text-center p-4 glass-effect rounded-xl">
+              <div className="text-4xl font-bold bg-gradient-to-r from-red-500 to-pink-600 bg-clip-text text-transparent font-heading">{privateCount}</div>
+              <div className="text-sm text-neutral-600 mt-2 font-medium">Private</div>
+            </div>
+            <div className="text-center p-4 glass-effect rounded-xl">
+              <div className="text-4xl font-bold bg-gradient-to-r from-emerald-500 to-teal-600 bg-clip-text text-transparent font-heading">{publicCount}</div>
+              <div className="text-sm text-neutral-600 mt-2 font-medium">Public</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Backup & Restore */}
+        <div className="card">
+          <h2 className="text-lg font-semibold text-neutral-900 mb-5 font-heading">💾 Backup & Restore</h2>
+          <div className="space-y-3">
+            <button
+              onClick={handleExport}
+              className="card-interactive w-full text-left group"
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-primary-100 rounded-xl group-hover:bg-primary-200 transition-colors">
+                  <Download size={24} className="text-primary-600" />
+                </div>
+                <div className="flex-1">
+                  <div className="text-neutral-900 font-semibold">Export Backup (JSON)</div>
+                  <div className="text-sm text-neutral-600">Download all data in JSON format</div>
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={handleExportEncrypted}
+              className="card-interactive w-full text-left group"
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-purple-100 rounded-xl group-hover:bg-purple-200 transition-colors">
+                  <Shield size={24} className="text-purple-600" />
+                </div>
+                <div className="flex-1">
+                  <div className="text-neutral-900 font-semibold">Export Encrypted Backup</div>
+                  <div className="text-sm text-neutral-600">Download password-protected backup</div>
+                </div>
+              </div>
+            </button>
+
+            <label className="card-interactive w-full cursor-pointer group block">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-emerald-100 rounded-xl group-hover:bg-emerald-200 transition-colors">
+                  <Upload size={24} className="text-emerald-600" />
+                </div>
+                <div className="flex-1">
+                  <div className="text-neutral-900 font-semibold">Import Backup (JSON)</div>
+                  <div className="text-sm text-neutral-600">{isImporting ? 'Importing...' : 'Restore from JSON file'}</div>
+                </div>
+              </div>
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleImport}
+                disabled={isImporting}
+                className="hidden"
+              />
+            </label>
+
+            <label className="card-interactive w-full cursor-pointer group block">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-teal-100 rounded-xl group-hover:bg-teal-200 transition-colors">
+                  <Shield size={24} className="text-teal-600" />
+                </div>
+                <div className="flex-1">
+                  <div className="text-neutral-900 font-semibold">Import Encrypted Backup</div>
+                  <div className="text-sm text-neutral-600">{isImporting ? 'Importing...' : 'Restore from encrypted file'}</div>
+                </div>
+              </div>
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleImportEncrypted}
+                disabled={isImporting}
+                className="hidden"
+              />
+            </label>
+          </div>
+          
+          {/* Migration Info */}
+          <div className="mt-5 p-4 glass-effect bg-blue-50 border border-blue-200 rounded-xl">
+            <div className="flex gap-3">
+              <Info size={18} className="text-blue-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-blue-900">
+                <p className="font-semibold mb-1.5">Data Portability & Migration</p>
+                <p className="text-blue-700 leading-relaxed">
+                  Your backups are version-tagged and support automatic migration. Old account records 
+                  will be converted to notes with special tags during import.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Security */}
+        <div className="card">
+          <h2 className="text-lg font-semibold text-neutral-900 mb-5 font-heading">🔒 Security</h2>
+          <button
+            onClick={lock}
+            className="card-interactive w-full text-left group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-amber-100 rounded-xl group-hover:bg-amber-200 transition-colors">
+                <Lock size={24} className="text-amber-600" />
+              </div>
+              <div className="flex-1">
+                <div className="text-neutral-900 font-semibold">Lock Vault</div>
+                <div className="text-sm text-neutral-600">Secure your data immediately</div>
+              </div>
+            </div>
+          </button>
+        </div>
+
+        {/* Danger Zone */}
+        <div className="card border-2 border-red-300 bg-red-50">
+          <h2 className="text-lg font-semibold text-red-700 mb-5 font-heading">⚠️ Danger Zone</h2>
+          <button
+            onClick={() => setShowClearModal(true)}
+            className="w-full flex items-center gap-4 px-5 py-4 bg-red-100 hover:bg-red-200 border-2 border-red-300 rounded-xl transition-all hover:scale-[1.02] active:scale-98"
+          >
+            <div className="p-3 bg-red-200 rounded-xl">
+              <Trash2 size={24} className="text-red-700" />
+            </div>
+            <div className="flex-1 text-left">
+              <div className="text-red-900 font-semibold">Clear All Data</div>
+              <div className="text-sm text-red-700">Permanently delete everything</div>
+            </div>
+          </button>
+        </div>
+
+        {/* Info */}
+        <div className="glass-effect bg-gradient-to-br from-primary-50 to-purple-50 border-2 border-primary-200 rounded-2xl p-6 shadow-md">
+          <div className="flex items-start gap-4">
+            <div className="p-3 bg-primary-100 rounded-xl">
+              <Info size={28} className="text-primary-600" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-neutral-900 mb-2.5 font-heading">About Pocket</h3>
+              <p className="text-sm text-neutral-700 leading-relaxed mb-4">
+                Pocket is a secure, offline personal information manager. All your data is encrypted with AES-256 
+                and stored locally on your device. Your information never leaves your browser.
+              </p>
+              <div className="grid grid-cols-2 gap-3 text-xs text-neutral-600">
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 bg-primary-500 rounded-full"></div>
+                  <span>Version: 1.0.0</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 bg-primary-500 rounded-full"></div>
+                  <span>Encryption: AES-GCM-256</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 bg-primary-500 rounded-full"></div>
+                  <span>Storage: IndexedDB (Local)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 bg-primary-500 rounded-full"></div>
+                  <span>Privacy: 100% Offline</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Clear Data Modal */}
+      <Modal
+        isOpen={showClearModal}
+        onClose={() => setShowClearModal(false)}
+        onConfirm={handleClearAll}
+        title="Clear All Data"
+        message="Are you sure you want to delete ALL data? This will remove all records, settings, and your PIN. This action cannot be undone. Make sure you have a backup!"
+        confirmText="Delete Everything"
+        cancelText="Cancel"
+        type="danger"
+      />
+
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+    </div>
+  );
+};
