@@ -74,62 +74,71 @@ npm run preview
 
 ## Deployment
 
-### Hosting on GitHub Pages
+### Deploy to Vercel (Recommended)
 
-This application can be securely hosted on GitHub Pages. Follow these steps:
+The easiest way to deploy Pocket is using Vercel:
 
-#### 1. Create a GitHub Repository
+#### Option 1: Deploy with Vercel CLI
 
+1. **Install Vercel CLI**
 ```bash
-# Initialize git if not already done
-git init
+npm install -g vercel
+```
 
-# Add all files
+2. **Login to Vercel**
+```bash
+vercel login
+```
+
+3. **Deploy**
+```bash
+# From your project directory
+vercel
+
+# For production deployment
+vercel --prod
+```
+
+#### Option 2: Deploy via Vercel Dashboard
+
+1. Push your code to GitHub:
+```bash
 git add .
-
-# Commit
-git commit -m "Initial commit: Pocket PII Manager"
-
-# Create a new repository on GitHub (replace YOUR_USERNAME with your GitHub username)
-# Then add it as remote
-git remote add origin https://github.com/YOUR_USERNAME/Pocket.git
-
-# Push to GitHub
-git push -u origin main
+git commit -m "Ready for deployment"
+git push origin main
 ```
 
-#### 2. Enable GitHub Pages
+2. Go to [vercel.com](https://vercel.com)
+3. Click **"Add New Project"**
+4. Import your GitHub repository
+5. Vercel will auto-detect Vite settings
+6. Click **"Deploy"**
 
-1. Go to your repository on GitHub
-2. Click on **Settings** → **Pages**
-3. Under **Source**, select **GitHub Actions**
-4. The deployment will start automatically on every push to `main`
+Your app will be live at: `https://your-project-name.vercel.app`
 
-#### 3. Access Your Application
+#### Custom Domain (Optional)
 
-Your app will be available at: `https://YOUR_USERNAME.github.io/Pocket/`
-
-**Note**: If you want to use a custom domain or different repository name, update the `base` path in `vite.config.ts`:
-
-```typescript
-base: mode === 'production' ? '/YOUR_REPO_NAME/' : '/',
-```
+1. Go to your project settings in Vercel
+2. Navigate to **Domains**
+3. Add your custom domain
+4. Update DNS records as instructed
 
 ### Security Considerations
 
-✅ **HTTPS Only**: GitHub Pages uses HTTPS by default, ensuring secure data transmission  
+✅ **HTTPS Only**: Vercel provides HTTPS by default  
 ✅ **No Server-Side Code**: Static hosting means no server vulnerabilities  
 ✅ **Client-Side Encryption**: All encryption happens in your browser  
 ✅ **No Backend**: No database or API to compromise  
 ✅ **Local Storage**: Data never leaves your device  
+✅ **Security Headers**: Configured in `vercel.json`  
 ✅ **Open Source**: Code is auditable by anyone
 
 ### Alternative Hosting Options
 
 You can also host this on:
 
-- **Netlify**: Drag and drop the `dist` folder
-- **Vercel**: Connect your GitHub repository
+- **Netlify**: Drag and drop the `dist` folder or connect GitHub
+- **GitHub Pages**: Use GitHub Actions workflow
 - **Cloudflare Pages**: Connect your GitHub repository
 - **Self-hosted**: Copy the `dist` folder to any web server
 
