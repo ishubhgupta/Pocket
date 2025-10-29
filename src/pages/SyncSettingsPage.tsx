@@ -166,41 +166,43 @@ export const SyncSettingsPage: React.FC = () => {
 
             {/* Sync Status Card */}
             <div className="card animate-slide-up" style={{ animationDelay: '0.1s' }}>
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-neutral-900 mb-1">Sync Status</h3>
-                  <p className="text-sm text-neutral-600">Last synced: {formatLastSyncTime(lastSyncTime)}</p>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleResetAndSync}
-                    disabled={isSyncing}
-                    className="btn-secondary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                    title="Reset sync and download everything from cloud"
-                  >
-                    <AlertCircle size={16} />
-                    Reset & Sync
-                  </button>
-                  <button
-                    onClick={handleSync}
-                    disabled={isSyncing}
-                    className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <RefreshCw size={18} className={isSyncing ? 'animate-spin' : ''} />
-                    {isSyncing ? 'Syncing...' : 'Sync Now'}
-                  </button>
-                </div>
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-neutral-900 mb-1">Sync Status</h3>
+                <p className="text-sm text-neutral-600">Last synced: {formatLastSyncTime(lastSyncTime)}</p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+                <button
+                  onClick={handleSync}
+                  disabled={isSyncing}
+                  className="btn-primary inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed w-full"
+                >
+                  <RefreshCw size={18} className={isSyncing ? 'animate-spin' : ''} />
+                  {isSyncing ? 'Syncing...' : 'Sync Now'}
+                </button>
+                <button
+                  onClick={handleResetAndSync}
+                  disabled={isSyncing}
+                  className="btn-secondary inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed w-full text-sm"
+                  title="Reset sync and download everything from cloud"
+                >
+                  <AlertCircle size={16} />
+                  Reset & Sync
+                </button>
               </div>
 
               {syncResult && (
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-neutral-50 rounded-lg">
-                    <span className="text-sm text-neutral-700">Uploaded</span>
-                    <span className="text-sm font-semibold text-primary-700">{syncResult.uploaded} records</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-neutral-50 rounded-lg">
-                    <span className="text-sm text-neutral-700">Downloaded</span>
-                    <span className="text-sm font-semibold text-primary-700">{syncResult.downloaded} records</span>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl text-center">
+                      <div className="text-2xl font-bold text-blue-700 mb-1">{syncResult.uploaded}</div>
+                      <div className="text-xs text-blue-600 font-medium">Uploaded</div>
+                    </div>
+                    <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-xl text-center">
+                      <div className="text-2xl font-bold text-green-700 mb-1">{syncResult.downloaded}</div>
+                      <div className="text-xs text-green-600 font-medium">Downloaded</div>
+                    </div>
                   </div>
                   {syncResult.errors.length > 0 && (
                     <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
