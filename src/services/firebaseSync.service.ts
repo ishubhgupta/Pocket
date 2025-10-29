@@ -5,7 +5,9 @@ import {
   getDoc,
   getDocs,
   deleteDoc,
-  serverTimestamp
+  serverTimestamp,
+  onSnapshot,
+  Unsubscribe
 } from 'firebase/firestore';
 import { db } from '../config/firebase.config';
 import { firebaseAuthService } from './firebase.service';
@@ -17,16 +19,31 @@ interface SyncMetadata {
   deviceId: string;
 }
 
+interface CloudRecord extends StoredRecord {
+  cloudUpdatedAt: number;
+  deviceId: string;
+  deleted?: boolean;
+}
+
+interface SyncResult {
+  uploaded: number;
+  downloaded: number;
+  deleted: number;
+  conflicts: number;
+  errors: string[];
+}
+
 /**
- * Firebase Sync Service
- * Handles cross-device synchronization of encrypted data
+ * Unified Firebase Sync Service
+ * Handles bidirectional sync with conflict resolution and data integrity
  */
 class FirebaseSyncService {
   private deviceId: string;
-  private isSyncing = false;
+  private syncInProgress = false;
+  private realtimeUnsubscribe: Unsubscribe | null = null;
+  private syncCallback: (() => void) | null = null;
 
   constructor() {
-    // Generate or retrieve device ID
     this.deviceId = this.getOrCreateDeviceId();
   }
 
@@ -65,161 +82,257 @@ class FirebaseSyncService {
   }
 
   /**
-   * Upload local data to Firebase
+   * Main sync function - unified bidirectional sync
    */
-  async syncToCloud(): Promise<{ uploaded: number; downloaded: number; errors: string[] }> {
-    if (this.isSyncing) {
-      console.log('[Sync] Already in progress, skipping...');
-      return { uploaded: 0, downloaded: 0, errors: ['Sync already in progress'] };
+  async syncToCloud(): Promise<SyncResult> {
+    if (this.syncInProgress) {
+      console.log('[Sync] Sync already in progress, skipping...');
+      return { uploaded: 0, downloaded: 0, deleted: 0, conflicts: 0, errors: ['Sync already in progress'] };
     }
 
     if (!firebaseAuthService.isSignedIn()) {
       console.log('[Sync] User not signed in');
-      return { uploaded: 0, downloaded: 0, errors: ['User not signed in'] };
+      return { uploaded: 0, downloaded: 0, deleted: 0, conflicts: 0, errors: ['User not signed in'] };
     }
 
-    console.log('[Sync] Starting sync...');
-    this.isSyncing = true;
-    const result = { uploaded: 0, downloaded: 0, errors: [] as string[] };
+    console.log('[Sync] ===== Starting Unified Sync =====');
+    this.syncInProgress = true;
+    const result: SyncResult = { uploaded: 0, downloaded: 0, deleted: 0, conflicts: 0, errors: [] };
 
     try {
-      // Get last sync time
+      // Step 1: Get sync metadata
       const syncMeta = await this.getSyncMetadata();
       const lastSyncTime = syncMeta?.lastSyncTime || 0;
-      console.log('[Sync] Last sync time:', lastSyncTime, lastSyncTime === 0 ? '(First sync)' : '');
+      console.log('[Sync] Last sync time:', lastSyncTime === 0 ? 'Never (First Sync)' : new Date(lastSyncTime).toLocaleString());
 
-      // Step 1: Upload changed local records
-      const localRecords = await storageService.getAllRecords();
-      console.log('[Sync] Local records found:', localRecords.length);
-      
-      // On first sync (lastSyncTime = 0), upload ALL records
-      // On subsequent syncs, only upload changed records
-      const changedRecords = lastSyncTime === 0 
-        ? localRecords 
-        : localRecords.filter((record) => new Date(record.updatedAt).getTime() > lastSyncTime);
+      // Step 2: Get local and cloud data
+      const [localRecords, cloudRecords] = await Promise.all([
+        storageService.getAllRecords(),
+        this.downloadAllRecords()
+      ]);
 
-      console.log('[Sync] Records to upload:', changedRecords.length);
+      console.log('[Sync] Local records:', localRecords.length, '| Cloud records:', cloudRecords.length);
 
-      for (const record of changedRecords) {
+      // Step 3: Build lookup maps for efficient comparison
+      const localMap = new Map(localRecords.map(r => [r.id, r]));
+      const cloudMap = new Map(cloudRecords.map(r => [r.id, r]));
+
+      // Step 4: Upload new/modified local records
+      for (const localRecord of localRecords) {
         try {
-          console.log('[Sync] Uploading record:', record.id, record.type);
-          await this.uploadRecord(record);
-          result.uploaded++;
+          const cloudRecord = cloudMap.get(localRecord.id);
+          const localUpdateTime = new Date(localRecord.updatedAt).getTime();
+
+          if (!cloudRecord) {
+            // New local record - upload
+            console.log('[Sync] ⬆ Uploading new record:', localRecord.id, localRecord.type);
+            await this.uploadRecord(localRecord);
+            result.uploaded++;
+          } else if (cloudRecord.deleted) {
+            // Cloud record is marked deleted - delete local
+            console.log('[Sync] 🗑 Cloud record deleted, removing local:', localRecord.id);
+            await storageService.deleteRecord(localRecord.id);
+            result.deleted++;
+          } else {
+            const cloudUpdateTime = cloudRecord.cloudUpdatedAt;
+            
+            // Check if local is newer
+            if (localUpdateTime > cloudUpdateTime) {
+              // Local is newer - upload if not from this device
+              if (cloudRecord.deviceId !== this.deviceId) {
+                console.log('[Sync] ⬆ Uploading modified record:', localRecord.id);
+                await this.uploadRecord(localRecord);
+                result.uploaded++;
+              }
+            } else if (cloudUpdateTime > localUpdateTime) {
+              // Cloud is newer - download
+              console.log('[Sync] ⬇ Downloading updated record:', localRecord.id);
+              await storageService.saveRecord(cloudRecord);
+              result.downloaded++;
+            }
+            // If times are equal, do nothing (already in sync)
+          }
         } catch (error) {
-          console.error('[Sync] Upload failed for record', record.id, error);
-          result.errors.push(`Failed to upload record ${record.id}: ${error}`);
+          console.error('[Sync] Error processing local record', localRecord.id, error);
+          result.errors.push(`Failed to sync local record ${localRecord.id}: ${error}`);
         }
       }
 
-      // Step 2: Download new/updated cloud records
-      const cloudRecords = await this.downloadAllRecords();
-      console.log('[Sync] Cloud records found:', cloudRecords.length);
-      
+      // Step 5: Download records that exist only in cloud
       for (const cloudRecord of cloudRecords) {
         try {
-          const cloudUpdateTime = cloudRecord.cloudUpdatedAt || 0;
-          console.log('[Sync] Checking cloud record:', cloudRecord.id, 
-            'cloudUpdatedAt:', cloudUpdateTime, 
-            'lastSyncTime:', lastSyncTime,
-            'shouldDownload:', lastSyncTime === 0 || cloudUpdateTime > lastSyncTime);
-          
-          // On first sync, download everything
-          // On subsequent syncs, only download what changed since last sync
-          const shouldDownload = lastSyncTime === 0 || cloudUpdateTime > lastSyncTime;
-          
-          if (!shouldDownload) {
-            console.log('[Sync] Skipping record', cloudRecord.id, '- not newer than last sync');
-            continue;
-          }
-
-          const localRecord = await storageService.getRecord(cloudRecord.id);
-          
-          if (!localRecord) {
-            // New record from cloud
-            console.log('[Sync] Downloading new record:', cloudRecord.id);
-            await storageService.saveRecord(cloudRecord);
-            result.downloaded++;
-          } else {
-            const localUpdateTime = new Date(localRecord.updatedAt).getTime();
-            console.log('[Sync] Comparing timestamps - Local:', localUpdateTime, 'Cloud:', cloudUpdateTime);
-            
-            // If cloud is newer, update local
-            if (cloudUpdateTime > localUpdateTime) {
-              console.log('[Sync] Updating local record:', cloudRecord.id);
+          if (!localMap.has(cloudRecord.id)) {
+            if (cloudRecord.deleted) {
+              // Already deleted, ignore
+              console.log('[Sync] Ignoring deleted cloud record:', cloudRecord.id);
+            } else {
+              // New cloud record - download
+              console.log('[Sync] ⬇ Downloading new cloud record:', cloudRecord.id);
               await storageService.saveRecord(cloudRecord);
               result.downloaded++;
-            } else {
-              console.log('[Sync] Local record is newer or same, skipping');
             }
           }
         } catch (error) {
-          console.error('[Sync] Download failed for record', cloudRecord.id, error);
-          result.errors.push(`Failed to download record ${cloudRecord.id}: ${error}`);
+          console.error('[Sync] Error downloading cloud record', cloudRecord.id, error);
+          result.errors.push(`Failed to download cloud record ${cloudRecord.id}: ${error}`);
         }
       }
 
-      // Step 3: Update sync metadata
+      // Step 6: Update sync metadata
       await this.updateSyncMetadata();
-      console.log('[Sync] Complete! Uploaded:', result.uploaded, 'Downloaded:', result.downloaded);
+
+      console.log('[Sync] ===== Sync Complete =====');
+      console.log(`[Sync] ⬆ Uploaded: ${result.uploaded} | ⬇ Downloaded: ${result.downloaded} | 🗑 Deleted: ${result.deleted}`);
+      
+      if (result.errors.length > 0) {
+        console.warn('[Sync] Errors encountered:', result.errors);
+      }
 
     } catch (error) {
-      console.error('[Sync] Fatal error:', error);
+      console.error('[Sync] Fatal sync error:', error);
       result.errors.push(`Sync failed: ${error}`);
     } finally {
-      this.isSyncing = false;
+      this.syncInProgress = false;
     }
+
+    // Notify listeners
+    if (this.syncCallback) {
+      this.syncCallback();
+    }
+    window.dispatchEvent(new CustomEvent('sync-complete'));
 
     return result;
   }
 
   /**
-   * Upload a single record to Firebase
+   * Upload a single record to Firebase with integrity checks
    */
   private async uploadRecord(record: StoredRecord): Promise<void> {
+    // Validate record before upload
+    if (!record.id || !record.type || !record.createdAt || !record.updatedAt) {
+      throw new Error('Invalid record structure');
+    }
+
     const userCollection = this.getUserCollection();
     const recordDoc = doc(userCollection, record.id.toString());
 
-    const cloudRecord = {
+    const cloudRecord: any = {
       ...record,
       cloudUpdatedAt: Date.now(),
       deviceId: this.deviceId,
       serverTimestamp: serverTimestamp()
     };
 
-    await setDoc(recordDoc, cloudRecord, { merge: true });
+    await setDoc(recordDoc, cloudRecord);
   }
 
   /**
    * Download all records from Firebase
    */
-  private async downloadAllRecords(): Promise<(StoredRecord & { cloudUpdatedAt?: number })[]> {
+  private async downloadAllRecords(): Promise<CloudRecord[]> {
     const userCollection = this.getUserCollection();
     const snapshot = await getDocs(userCollection);
     
-    const records: (StoredRecord & { cloudUpdatedAt?: number })[] = [];
+    const records: CloudRecord[] = [];
     snapshot.forEach((doc) => {
-      const data = doc.data() as StoredRecord & { cloudUpdatedAt?: number };
-      records.push(data);
+      const data = doc.data() as CloudRecord;
+      // Only include non-deleted records or recently deleted (for cleanup)
+      if (!data.deleted || (data.cloudUpdatedAt && Date.now() - data.cloudUpdatedAt < 86400000)) {
+        records.push(data);
+      }
     });
 
     return records;
   }
 
   /**
-   * Delete a record from Firebase
+   * Delete a record from Firebase (soft delete with marker)
    */
   async deleteRecord(recordId: number): Promise<void> {
     if (!firebaseAuthService.isSignedIn()) {
+      console.log('[Sync] Cannot delete from cloud - user not signed in');
       return;
     }
 
     try {
+      console.log('[Sync] 🗑 Marking record as deleted in cloud:', recordId);
       const userCollection = this.getUserCollection();
       const recordDoc = doc(userCollection, recordId.toString());
-      await deleteDoc(recordDoc);
+
+      // Soft delete: mark as deleted instead of removing
+      await setDoc(recordDoc, {
+        id: recordId,
+        deleted: true,
+        cloudUpdatedAt: Date.now(),
+        deviceId: this.deviceId,
+        serverTimestamp: serverTimestamp()
+      }, { merge: true });
+
+      console.log('[Sync] Record marked as deleted successfully');
     } catch (error) {
-      console.error('Failed to delete record from cloud:', error);
+      console.error('[Sync] Failed to delete record from cloud:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Enable real-time sync listener
+   */
+  enableRealtimeSync(callback: () => void): void {
+    if (this.realtimeUnsubscribe) {
+      console.log('[Sync] Real-time sync already enabled');
+      return;
+    }
+
+    if (!firebaseAuthService.isSignedIn()) {
+      console.log('[Sync] Cannot enable real-time sync - user not signed in');
+      return;
+    }
+
+    this.syncCallback = callback;
+    const userCollection = this.getUserCollection();
+
+    console.log('[Sync] 📡 Enabling real-time sync listener...');
+    
+    this.realtimeUnsubscribe = onSnapshot(
+      userCollection,
+      (snapshot) => {
+        if (this.syncInProgress) {
+          console.log('[Sync] Ignoring snapshot - sync in progress');
+          return;
+        }
+
+        console.log('[Sync] 📡 Real-time update detected:', snapshot.docChanges().length, 'changes');
+        
+        // Debounce: only sync if changes from other devices
+        let hasExternalChanges = false;
+        snapshot.docChanges().forEach((change) => {
+          const data = change.doc.data() as CloudRecord;
+          if (data.deviceId !== this.deviceId) {
+            hasExternalChanges = true;
+          }
+        });
+
+        if (hasExternalChanges) {
+          console.log('[Sync] External changes detected, triggering sync...');
+          setTimeout(() => this.syncToCloud(), 1000); // Debounce 1 second
+        }
+      },
+      (error) => {
+        console.error('[Sync] Real-time listener error:', error);
+      }
+    );
+  }
+
+  /**
+   * Disable real-time sync listener
+   */
+  disableRealtimeSync(): void {
+    if (this.realtimeUnsubscribe) {
+      console.log('[Sync] 📡 Disabling real-time sync listener');
+      this.realtimeUnsubscribe();
+      this.realtimeUnsubscribe = null;
+      this.syncCallback = null;
     }
   }
 
@@ -236,7 +349,7 @@ class FirebaseSyncService {
       }
       return null;
     } catch (error) {
-      console.error('Failed to get sync metadata:', error);
+      console.error('[Sync] Failed to get sync metadata:', error);
       return null;
     }
   }
@@ -254,51 +367,7 @@ class FirebaseSyncService {
   }
 
   /**
-   * Check if sync is available
-   */
-  canSync(): boolean {
-    return firebaseAuthService.isSignedIn();
-  }
-
-  /**
-   * Force full sync (upload all local data)
-   */
-  async forceFullSync(): Promise<{ uploaded: number; errors: string[] }> {
-    if (!firebaseAuthService.isSignedIn()) {
-      return { uploaded: 0, errors: ['User not signed in'] };
-    }
-
-    const result = { uploaded: 0, errors: [] as string[] };
-
-    try {
-      const localRecords = await storageService.getAllRecords();
-      
-      for (const record of localRecords) {
-        try {
-          await this.uploadRecord(record);
-          result.uploaded++;
-        } catch (error) {
-          result.errors.push(`Failed to upload record ${record.id}: ${error}`);
-        }
-      }
-
-      await this.updateSyncMetadata();
-    } catch (error) {
-      result.errors.push(`Force sync failed: ${error}`);
-    }
-
-    return result;
-  }
-
-  /**
-   * Get sync status
-   */
-  isSyncInProgress(): boolean {
-    return this.isSyncing;
-  }
-
-  /**
-   * Reset sync metadata to force fresh sync on next attempt
+   * Reset sync metadata to force fresh sync
    */
   async resetSyncMetadata(): Promise<void> {
     try {
@@ -313,6 +382,52 @@ class FirebaseSyncService {
     } catch (error) {
       console.error('[Sync] Failed to reset sync metadata:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Check if sync is available
+   */
+  canSync(): boolean {
+    return firebaseAuthService.isSignedIn();
+  }
+
+  /**
+   * Get sync status
+   */
+  isSyncInProgress(): boolean {
+    return this.syncInProgress;
+  }
+
+  /**
+   * Cleanup deleted records from cloud (older than 24 hours)
+   */
+  async cleanupDeletedRecords(): Promise<number> {
+    if (!firebaseAuthService.isSignedIn()) {
+      return 0;
+    }
+
+    try {
+      console.log('[Sync] 🧹 Cleaning up old deleted records...');
+      const userCollection = this.getUserCollection();
+      const snapshot = await getDocs(userCollection);
+      
+      const cutoffTime = Date.now() - 86400000; // 24 hours ago
+      let cleaned = 0;
+
+      for (const docSnapshot of snapshot.docs) {
+        const data = docSnapshot.data() as CloudRecord;
+        if (data.deleted && data.cloudUpdatedAt < cutoffTime) {
+          await deleteDoc(doc(userCollection, docSnapshot.id));
+          cleaned++;
+        }
+      }
+
+      console.log('[Sync] Cleaned up', cleaned, 'old deleted records');
+      return cleaned;
+    } catch (error) {
+      console.error('[Sync] Cleanup failed:', error);
+      return 0;
     }
   }
 }

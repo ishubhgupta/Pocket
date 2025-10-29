@@ -204,6 +204,22 @@ export const SyncSettingsPage: React.FC = () => {
                       <div className="text-xs text-green-600 font-medium">Downloaded</div>
                     </div>
                   </div>
+                  {(syncResult.deleted > 0 || syncResult.conflicts > 0) && (
+                    <div className="grid grid-cols-2 gap-3">
+                      {syncResult.deleted > 0 && (
+                        <div className="p-4 bg-gradient-to-br from-red-50 to-red-100 rounded-xl text-center">
+                          <div className="text-2xl font-bold text-red-700 mb-1">{syncResult.deleted}</div>
+                          <div className="text-xs text-red-600 font-medium">Deleted</div>
+                        </div>
+                      )}
+                      {syncResult.conflicts > 0 && (
+                        <div className="p-4 bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl text-center">
+                          <div className="text-2xl font-bold text-yellow-700 mb-1">{syncResult.conflicts}</div>
+                          <div className="text-xs text-yellow-600 font-medium">Conflicts</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {syncResult.errors.length > 0 && (
                     <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
                       <div className="flex items-start gap-2">

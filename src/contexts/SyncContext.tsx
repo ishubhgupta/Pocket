@@ -13,7 +13,7 @@ interface SyncContextType {
   signOut: () => Promise<void>;
   syncNow: () => Promise<void>;
   resetAndSync: () => Promise<void>;
-  syncResult: { uploaded: number; downloaded: number; errors: string[] } | null;
+  syncResult: { uploaded: number; downloaded: number; deleted: number; conflicts: number; errors: string[] } | null;
   onSyncComplete?: () => void;
 }
 
@@ -32,7 +32,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode; onSyncComplete?
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
-  const [syncResult, setSyncResult] = useState<{ uploaded: number; downloaded: number; errors: string[] } | null>(null);
+  const [syncResult, setSyncResult] = useState<{ uploaded: number; downloaded: number; deleted: number; conflicts: number; errors: string[] } | null>(null);
 
   useEffect(() => {
     // Subscribe to auth state changes
@@ -48,6 +48,25 @@ export const SyncProvider: React.FC<{ children: React.ReactNode; onSyncComplete?
 
     return () => unsubscribe();
   }, []);
+
+  // Start real-time sync listener when user signs in
+  useEffect(() => {
+    if (!user) {
+      firebaseSyncService.disableRealtimeSync();
+      return;
+    }
+
+    console.log('[SyncContext] Enabling real-time sync...');
+    firebaseSyncService.enableRealtimeSync(() => {
+      console.log('[SyncContext] Real-time update detected');
+      // Data will be auto-synced by the service
+    });
+
+    return () => {
+      console.log('[SyncContext] Disabling real-time sync...');
+      firebaseSyncService.disableRealtimeSync();
+    };
+  }, [user]);
 
   const performSync = async () => {
     if (isSyncing) return;
@@ -72,7 +91,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode; onSyncComplete?
       window.dispatchEvent(new CustomEvent('sync-complete'));
     } catch (error) {
       console.error('Sync failed:', error);
-      setSyncResult({ uploaded: 0, downloaded: 0, errors: [String(error)] });
+      setSyncResult({ uploaded: 0, downloaded: 0, deleted: 0, conflicts: 0, errors: [String(error)] });
     } finally {
       setIsSyncing(false);
     }
@@ -114,7 +133,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode; onSyncComplete?
       await performSync();
     } catch (error) {
       console.error('[SyncContext] Reset and sync failed:', error);
-      setSyncResult({ uploaded: 0, downloaded: 0, errors: [String(error)] });
+      setSyncResult({ uploaded: 0, downloaded: 0, deleted: 0, conflicts: 0, errors: [String(error)] });
     }
   };
 
