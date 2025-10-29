@@ -12,7 +12,9 @@ interface SyncContextType {
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   syncNow: () => Promise<void>;
+  resetAndSync: () => Promise<void>;
   syncResult: { uploaded: number; downloaded: number; errors: string[] } | null;
+  onSyncComplete?: () => void;
 }
 
 const SyncContext = createContext<SyncContextType | undefined>(undefined);
@@ -25,7 +27,7 @@ export const useSyncContext = () => {
   return context;
 };
 
-export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const SyncProvider: React.FC<{ children: React.ReactNode; onSyncComplete?: () => void }> = ({ children, onSyncComplete }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -60,6 +62,14 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Store last sync time in localStorage
       localStorage.setItem('pocket_last_sync', Date.now().toString());
+      
+      // Notify parent to reload vault data
+      if (onSyncComplete) {
+        onSyncComplete();
+      }
+      
+      // Also trigger a custom event for vault to listen to
+      window.dispatchEvent(new CustomEvent('sync-complete'));
     } catch (error) {
       console.error('Sync failed:', error);
       setSyncResult({ uploaded: 0, downloaded: 0, errors: [String(error)] });
@@ -97,6 +107,17 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await performSync();
   };
 
+  const resetAndSync = async () => {
+    try {
+      console.log('[SyncContext] Resetting sync and performing fresh sync...');
+      await firebaseSyncService.resetSyncMetadata();
+      await performSync();
+    } catch (error) {
+      console.error('[SyncContext] Reset and sync failed:', error);
+      setSyncResult({ uploaded: 0, downloaded: 0, errors: [String(error)] });
+    }
+  };
+
   const value: SyncContextType = {
     user,
     isSignedIn: !!user,
@@ -106,6 +127,7 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signInWithGoogle,
     signOut,
     syncNow,
+    resetAndSync,
     syncResult
   };
 

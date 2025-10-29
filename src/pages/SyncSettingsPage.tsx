@@ -6,7 +6,7 @@ import { Toast } from '../components/Toast';
 
 export const SyncSettingsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, isSignedIn, isSyncing, lastSyncTime, signInWithGoogle, signOut, syncNow, syncResult } = useSyncContext();
+  const { user, isSignedIn, isSyncing, lastSyncTime, signInWithGoogle, signOut, syncNow, resetAndSync, syncResult } = useSyncContext();
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const handleSignIn = async () => {
@@ -37,6 +37,15 @@ export const SyncSettingsPage: React.FC = () => {
       }
     } catch (error) {
       setToast({ message: 'Sync failed', type: 'error' });
+    }
+  };
+
+  const handleResetAndSync = async () => {
+    try {
+      await resetAndSync();
+      setToast({ message: 'Sync reset and completed!', type: 'success' });
+    } catch (error) {
+      setToast({ message: 'Reset sync failed', type: 'error' });
     }
   };
 
@@ -162,14 +171,25 @@ export const SyncSettingsPage: React.FC = () => {
                   <h3 className="text-lg font-semibold text-neutral-900 mb-1">Sync Status</h3>
                   <p className="text-sm text-neutral-600">Last synced: {formatLastSyncTime(lastSyncTime)}</p>
                 </div>
-                <button
-                  onClick={handleSync}
-                  disabled={isSyncing}
-                  className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <RefreshCw size={18} className={isSyncing ? 'animate-spin' : ''} />
-                  {isSyncing ? 'Syncing...' : 'Sync Now'}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleResetAndSync}
+                    disabled={isSyncing}
+                    className="btn-secondary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    title="Reset sync and download everything from cloud"
+                  >
+                    <AlertCircle size={16} />
+                    Reset & Sync
+                  </button>
+                  <button
+                    onClick={handleSync}
+                    disabled={isSyncing}
+                    className="btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <RefreshCw size={18} className={isSyncing ? 'animate-spin' : ''} />
+                    {isSyncing ? 'Syncing...' : 'Sync Now'}
+                  </button>
+                </div>
               </div>
 
               {syncResult && (

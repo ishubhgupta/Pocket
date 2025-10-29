@@ -85,6 +85,17 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [masterKey]);
 
+  // Listen for sync completion and reload data
+  useEffect(() => {
+    const handleSyncComplete = () => {
+      console.log('Sync completed, reloading vault data...');
+      loadData();
+    };
+
+    window.addEventListener('sync-complete', handleSyncComplete);
+    return () => window.removeEventListener('sync-complete', handleSyncComplete);
+  }, [loadData]);
+
   // Add new record
   const addRecord = useCallback(async (record: Omit<RecordData, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
