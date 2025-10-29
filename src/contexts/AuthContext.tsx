@@ -35,7 +35,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [isSetup, setIsSetup] = useState<boolean | null>(null); // null = loading, false = not setup, true = setup
   
-  const autoLockTimer = useRef<number | null>(null);
+  const autoLockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastActivity = useRef<number>(Date.now());
 
   // Check if app is already set up
