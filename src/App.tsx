@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { VaultProvider } from './contexts/VaultContext';
+import { SyncProvider } from './contexts/SyncContext';
 import { SetupPage } from './pages/SetupPage';
 import { UnlockPage } from './pages/UnlockPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -12,6 +13,7 @@ import { RecordDetailPage } from './pages/RecordDetailPage';
 import { SearchPage } from './pages/SearchPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { DiagnosticPage } from './pages/DiagnosticPage';
+import { SyncSettingsPage } from './pages/SyncSettingsPage';
 
 const AppRoutes: React.FC = () => {
   const { isSetup, checkSetup } = useAuth();
@@ -41,6 +43,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/dashboard" element={<DashboardPage />} />
       <Route path="/search" element={<SearchPage />} />
       <Route path="/settings" element={<SettingsPage />} />
+      <Route path="/sync" element={<SyncSettingsPage />} />
       <Route path="/diagnostic" element={<DiagnosticPage />} />
       <Route path="/category/:type" element={<CategoryListPage />} />
       <Route path="/add/:type" element={<AddRecordPage />} />
@@ -55,9 +58,11 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <VaultProvider>
-          <AppRoutes />
-        </VaultProvider>
+        <SyncProvider>
+          <VaultProvider>
+            <AppRoutes />
+          </VaultProvider>
+        </SyncProvider>
       </AuthProvider>
     </BrowserRouter>
   );

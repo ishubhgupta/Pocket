@@ -2,15 +2,17 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useVault } from '../contexts/VaultContext';
+import { useSyncContext } from '../contexts/SyncContext';
 import { CategoryIcon } from '../components/CategoryIcon';
 import { Logo } from '../components/Logo';
-import { Lock, Search, Settings } from 'lucide-react';
+import { Lock, Search, Settings, Cloud, CloudOff } from 'lucide-react';
 import { DataType } from '../types';
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { lock } = useAuth();
   const { privateRecords, publicRecords, loadData } = useVault();
+  const { isSignedIn } = useSyncContext();
 
   useEffect(() => {
     loadData();
@@ -36,6 +38,18 @@ export const DashboardPage: React.FC = () => {
         <div className="max-w-4xl mx-auto px-4 py-5 flex items-center justify-between">
           <Logo variant="full" size={36} />
           <div className="flex gap-2">
+            <button
+              onClick={() => navigate('/sync')}
+              className={`p-2.5 glass-effect rounded-xl transition-all hover:scale-105 active:scale-95 shadow-sm ${
+                isSignedIn 
+                  ? 'hover:bg-green-50 text-green-600' 
+                  : 'hover:bg-neutral-200/50 text-neutral-700'
+              }`}
+              aria-label="Cloud Sync"
+              title={isSignedIn ? 'Sync Active' : 'Enable Sync'}
+            >
+              {isSignedIn ? <Cloud size={22} /> : <CloudOff size={22} />}
+            </button>
             <button
               onClick={() => navigate('/search')}
               className="p-2.5 glass-effect hover:bg-primary-50 text-primary-600 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-sm"

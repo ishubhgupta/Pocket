@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { RecordData, StoredRecord } from '../types';
 import { cryptoService } from '../services/crypto.service';
 import { storageService } from '../services/storage.service';
+import { firebaseSyncService } from '../services/firebaseSync.service';
 import { useAuth } from './AuthContext';
 import Fuse from 'fuse.js';
 
@@ -122,6 +123,11 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       } else {
         setPublicRecords(prev => [...prev, newRecord]);
       }
+
+      // Trigger background sync if user is signed in
+      if (firebaseSyncService.canSync()) {
+        firebaseSyncService.syncToCloud().catch(err => console.error('Background sync failed:', err));
+      }
     } catch (error) {
       console.error('Failed to add record:', error);
       throw error;
@@ -183,6 +189,11 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       } else {
         setPublicRecords(prev => prev.map(r => r.id === id ? updatedData as RecordData : r));
       }
+
+      // Trigger background sync if user is signed in
+      if (firebaseSyncService.canSync()) {
+        firebaseSyncService.syncToCloud().catch(err => console.error('Background sync failed:', err));
+      }
     } catch (error) {
       console.error('Failed to update record:', error);
       throw error;
@@ -195,6 +206,11 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       await storageService.deleteRecord(id);
       setPrivateRecords(prev => prev.filter(r => r.id !== id));
       setPublicRecords(prev => prev.filter(r => r.id !== id));
+
+      // Delete from cloud and trigger sync
+      if (firebaseSyncService.canSync()) {
+        firebaseSyncService.deleteRecord(id).catch(err => console.error('Failed to delete from cloud:', err));
+      }
     } catch (error) {
       console.error('Failed to delete record:', error);
       throw error;
