@@ -1,4 +1,4 @@
-export type DataType = 'card' | 'netbanking' | 'note';
+export type DataType = 'card' | 'netbanking' | 'note' | 'password';
 
 export interface BaseRecord {
   id: number;
@@ -28,6 +28,16 @@ export interface NetbankingData extends BaseRecord {
   password: string;
   url: string;
   accountNumber?: string;
+  profilePassword?: string;
+  transactionPassword?: string;
+}
+
+export interface PasswordData extends BaseRecord {
+  type: 'password';
+  title: string;
+  url?: string;
+  username: string;
+  password: string;
 }
 
 // AccountData removed - accounts category deprecated
@@ -40,13 +50,20 @@ export interface NetbankingData extends BaseRecord {
 //   additionalInfo?: string;
 // }
 
+export interface NoteField {
+  id: string;
+  label: string;
+  value: string;
+}
+
 export interface NoteData extends BaseRecord {
   type: 'note';
   title: string;
   content: string;
+  fields?: NoteField[];
 }
 
-export type RecordData = CardData | NetbankingData | NoteData;
+export type RecordData = CardData | NetbankingData | NoteData | PasswordData;
 
 export interface StoredRecord {
   id: number;

@@ -194,19 +194,72 @@ export const RecordDetailPage: React.FC = () => {
               {renderField('Password', record.password, true, 'password')}
               {renderField('Website URL', record.url)}
               {record.accountNumber && renderField('Account Number', record.accountNumber, true, 'account')}
+              {record.profilePassword && renderField('Profile Password', record.profilePassword, true, 'profilePassword')}
+              {record.transactionPassword && renderField('Transaction Password', record.transactionPassword, true, 'transactionPassword')}
+            </>
+          )}
+
+          {record.type === 'password' && (
+            <>
+              {renderField('Title', record.title)}
+              {record.url && (
+                <div className="space-y-2 animate-fade-in">
+                  <label className="block text-sm font-medium text-neutral-700">Website URL</label>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={record.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 input-field text-primary-600 hover:text-primary-700 underline font-mono break-all"
+                    >
+                      {record.url}
+                    </a>
+                    <CopyButton text={record.url} label="Copy" />
+                  </div>
+                </div>
+              )}
+              {renderField('Username / Email', record.username)}
+              {renderField('Password', record.password, true, 'passwordValue')}
             </>
           )}
 
           {record.type === 'note' && (
             <>
               {renderField('Title', record.title)}
-              <div className="space-y-2 animate-fade-in">
-                <label className="block text-sm font-medium text-neutral-700">Content</label>
-                <div className="input-field text-neutral-900 whitespace-pre-wrap min-h-[200px]">
-                  {record.content}
+              
+              {record.content && (
+                <div className="space-y-2 animate-fade-in">
+                  <label className="block text-sm font-medium text-neutral-700">Content</label>
+                  <div className="input-field text-neutral-900 whitespace-pre-wrap min-h-[100px]">
+                    {record.content}
+                  </div>
+                  <CopyButton text={record.content} label="Copy Content" />
                 </div>
-                <CopyButton text={record.content} label="Copy Content" />
-              </div>
+              )}
+
+              {/* Custom Fields */}
+              {record.fields && record.fields.length > 0 && (
+                <div className="space-y-3 pt-4 border-t border-neutral-200 animate-fade-in">
+                  <label className="block text-sm font-semibold text-neutral-800">Custom Fields</label>
+                  {record.fields.map((field) => (
+                    <div key={field.id} className="card p-4 bg-neutral-50">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-medium text-neutral-600 mb-1">
+                            {field.label || 'Unnamed Field'}
+                          </div>
+                          <div className="text-sm text-neutral-900 font-mono break-all">
+                            {field.value || '(empty)'}
+                          </div>
+                        </div>
+                        {field.value && (
+                          <CopyButton text={field.value} label="" />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
 
