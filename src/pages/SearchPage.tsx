@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useVault } from '../contexts/VaultContext';
 import { useAuth } from '../contexts/AuthContext';
-import { RecordData } from '../types';
+import { RecordData, DataType } from '../types';
 import { ArrowLeft, Search as SearchIcon, X, Lock } from 'lucide-react';
 import { SecurityBadge } from '../components/SecurityBadge';
 import { CategoryIcon } from '../components/CategoryIcon';
@@ -74,10 +74,11 @@ export const SearchPage: React.FC = () => {
     }
   };
 
-  const categoryNames = {
+  const categoryNames: Record<DataType, string> = {
     card: 'Card',
     netbanking: 'Net Banking',
     note: 'Note',
+    password: 'Password',
   };
 
   return (

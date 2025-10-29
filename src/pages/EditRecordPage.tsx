@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useVault } from '../contexts/VaultContext';
 import { useAuth } from '../contexts/AuthContext';
-import { RecordData, DataType } from '../types';
+import { RecordData, DataType, NoteField } from '../types';
 import { storageService } from '../services/storage.service';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, Plus, X } from 'lucide-react';
 import { Toast } from '../components/Toast';
 import { PrivateDataGuard } from '../components/PrivateDataGuard';
 
@@ -43,9 +43,32 @@ export const EditRecordPage: React.FC = () => {
   // Note fields
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [noteFields, setNoteFields] = useState<NoteField[]>([]);
 
-  // Cards and Netbanking are ALWAYS private
-  const isSecuredCategory = record?.type === 'card' || record?.type === 'netbanking';
+  // Password fields
+  const [passwordTitle, setPasswordTitle] = useState('');
+  const [passwordUrl, setPasswordUrl] = useState('');
+  const [passwordUsername, setPasswordUsername] = useState('');
+  const [passwordValue, setPasswordValue] = useState('');
+
+  // Netbanking additional fields
+  const [profilePassword, setProfilePassword] = useState('');
+  const [transactionPassword, setTransactionPassword] = useState('');
+
+  const addNoteField = () => {
+    setNoteFields([...noteFields, { id: Date.now().toString(), label: '', value: '' }]);
+  };
+
+  const updateNoteField = (id: string, field: 'label' | 'value', newValue: string) => {
+    setNoteFields(noteFields.map(f => f.id === id ? { ...f, [field]: newValue } : f));
+  };
+
+  const removeNoteField = (id: string) => {
+    setNoteFields(noteFields.filter(f => f.id !== id));
+  };
+
+  // Cards, Netbanking, and Passwords are ALWAYS private
+  const isSecuredCategory = record?.type === 'card' || record?.type === 'netbanking' || record?.type === 'password';
 
   // Check if record is private
   useEffect(() => {
@@ -90,10 +113,19 @@ export const EditRecordPage: React.FC = () => {
           setPassword(found.password);
           setUrl(found.url);
           setAccountNumber(found.accountNumber || '');
+          setProfilePassword(found.profilePassword || '');
+          setTransactionPassword(found.transactionPassword || '');
           break;
         case 'note':
           setTitle(found.title);
           setContent(found.content);
+          setNoteFields(found.fields || []);
+          break;
+        case 'password':
+          setPasswordTitle(found.title);
+          setPasswordUrl(found.url || '');
+          setPasswordUsername(found.username);
+          setPasswordValue(found.password);
           break;
       }
     }
@@ -118,6 +150,7 @@ export const EditRecordPage: React.FC = () => {
     card: 'Card',
     netbanking: 'Net Banking',
     note: 'Note',
+    password: 'Password',
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -165,6 +198,8 @@ export const EditRecordPage: React.FC = () => {
             password,
             url,
             accountNumber,
+            profilePassword: profilePassword || undefined,
+            transactionPassword: transactionPassword || undefined,
           };
           break;
         case 'note':
@@ -173,6 +208,17 @@ export const EditRecordPage: React.FC = () => {
             tags: tagArray,
             title,
             content,
+            fields: noteFields.filter(f => f.label || f.value), // Only include non-empty fields
+          };
+          break;
+        case 'password':
+          updates = {
+            isPrivate: finalIsPrivate,
+            tags: tagArray,
+            title: passwordTitle,
+            url: passwordUrl || undefined,
+            username: passwordUsername,
+            password: passwordValue,
           };
           break;
         default:
@@ -441,6 +487,91 @@ export const EditRecordPage: React.FC = () => {
                   className="w-full px-4 py-2 input-field rounded-lg text-neutral-900"
                 />
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Profile Password
+                </label>
+                <input
+                  type="password"
+                  value={profilePassword}
+                  onChange={(e) => setProfilePassword(e.target.value)}
+                  placeholder="Optional profile password"
+                  className="w-full px-4 py-2 input-field rounded-lg text-neutral-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Transaction Password
+                </label>
+                <input
+                  type="password"
+                  value={transactionPassword}
+                  onChange={(e) => setTransactionPassword(e.target.value)}
+                  placeholder="Optional transaction password"
+                  className="w-full px-4 py-2 input-field rounded-lg text-neutral-900"
+                />
+              </div>
+            </>
+          )}
+
+          {record.type === 'password' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Title *
+                </label>
+                <input
+                  type="text"
+                  value={passwordTitle}
+                  onChange={(e) => setPasswordTitle(e.target.value)}
+                  required
+                  placeholder="e.g., Gmail Account, Work Email"
+                  className="w-full px-4 py-2 input-field rounded-lg text-neutral-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Website URL (Optional)
+                </label>
+                <input
+                  type="url"
+                  value={passwordUrl}
+                  onChange={(e) => setPasswordUrl(e.target.value)}
+                  placeholder="https://example.com"
+                  className="w-full px-4 py-2 input-field rounded-lg text-neutral-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Username / Email *
+                </label>
+                <input
+                  type="text"
+                  value={passwordUsername}
+                  onChange={(e) => setPasswordUsername(e.target.value)}
+                  required
+                  placeholder="username@example.com"
+                  className="w-full px-4 py-2 input-field rounded-lg text-neutral-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  Password *
+                </label>
+                <input
+                  type="password"
+                  value={passwordValue}
+                  onChange={(e) => setPasswordValue(e.target.value)}
+                  required
+                  placeholder="••••••••"
+                  className="w-full px-4 py-2 input-field rounded-lg text-neutral-900"
+                />
+              </div>
             </>
           )}
 
@@ -455,22 +586,79 @@ export const EditRecordPage: React.FC = () => {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   required
+                  placeholder="My Note Title"
                   className="w-full px-4 py-2 input-field rounded-lg text-neutral-900"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  Content *
+                  Content
                 </label>
                 <textarea
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  rows={10}
-                  required
-                  className="w-full px-4 py-2 input-field rounded-lg text-neutral-900"
-                  placeholder="Write your note here..."
+                  rows={6}
+                  placeholder="General notes or description..."
+                  className="w-full px-4 py-2 input-field rounded-lg text-neutral-900 resize-none"
                 />
+              </div>
+
+              {/* Custom Fields */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-sm font-medium text-neutral-700">
+                    Custom Fields (Optional)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={addNoteField}
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                  >
+                    <Plus size={16} />
+                    Add Field
+                  </button>
+                </div>
+                
+                {noteFields.length === 0 && (
+                  <div className="text-center py-6 bg-neutral-50 border border-neutral-200 border-dashed rounded-lg">
+                    <p className="text-sm text-neutral-500">
+                      Add custom fields like "Aadhar Number", "PAN", etc.
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  {noteFields.map((field) => (
+                    <div key={field.id} className="card p-4">
+                      <div className="flex gap-3">
+                        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <input
+                            type="text"
+                            value={field.label}
+                            onChange={(e) => updateNoteField(field.id, 'label', e.target.value)}
+                            placeholder="Field Name (e.g., Aadhar Number)"
+                            className="px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-neutral-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                          />
+                          <input
+                            type="text"
+                            value={field.value}
+                            onChange={(e) => updateNoteField(field.id, 'value', e.target.value)}
+                            placeholder="Value"
+                            className="px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-neutral-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeNoteField(field.id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <X size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </>
           )}

@@ -19,6 +19,7 @@ export const DashboardPage: React.FC = () => {
   const categories: Array<{ type: DataType; label: string; bgClass: string }> = [
     { type: 'card', label: 'Cards', bgClass: 'bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600' },
     { type: 'netbanking', label: 'Net Banking', bgClass: 'bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600' },
+    { type: 'password', label: 'Passwords', bgClass: 'bg-gradient-to-br from-purple-500 via-purple-600 to-pink-600' },
     { type: 'note', label: 'Notes', bgClass: 'bg-gradient-to-br from-amber-500 via-orange-500 to-red-500' },
   ];
 

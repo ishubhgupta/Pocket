@@ -16,8 +16,8 @@ export const CategoryListPage: React.FC = () => {
   const [filter, setFilter] = useState<'all' | 'private' | 'public'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Cards and Netbanking are ALWAYS secured - require authentication immediately
-  const isSecuredCategory = type === 'card' || type === 'netbanking';
+  // Cards, Netbanking, and Passwords are ALWAYS secured - require authentication immediately
+  const isSecuredCategory = type === 'card' || type === 'netbanking' || type === 'password';
   
   // For notes, show all public by default, private requires separate tab with auth
   const isNotesCategory = type === 'note';
@@ -46,6 +46,7 @@ export const CategoryListPage: React.FC = () => {
     card: 'Cards',
     netbanking: 'Net Banking',
     note: 'Notes',
+    password: 'Passwords',
   };
 
   const getRecords = (): RecordData[] => {
@@ -102,6 +103,13 @@ export const CategoryListPage: React.FC = () => {
               record.content?.toLowerCase().includes(query) ||
               (record.tags && record.tags.some(tag => tag.toLowerCase().includes(query)))
             );
+          case 'password':
+            return (
+              record.title?.toLowerCase().includes(query) ||
+              record.username?.toLowerCase().includes(query) ||
+              (record.url && record.url.toLowerCase().includes(query)) ||
+              (record.tags && record.tags.some(tag => tag.toLowerCase().includes(query)))
+            );
           default:
             return false;
         }
@@ -121,6 +129,8 @@ export const CategoryListPage: React.FC = () => {
         return `${record.bankName} - ${record.accountHolderName}`;
       case 'note':
         return record.title;
+      case 'password':
+        return record.title;
       default:
         return 'Unknown';
     }
@@ -134,6 +144,8 @@ export const CategoryListPage: React.FC = () => {
         return record.loginId;
       case 'note':
         return record.content.slice(0, 60) + (record.content.length > 60 ? '...' : '');
+      case 'password':
+        return ''; // Don't show subtitle for passwords
       default:
         return '';
     }

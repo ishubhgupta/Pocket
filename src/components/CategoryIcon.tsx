@@ -1,5 +1,5 @@
 import React from 'react';
-import { CreditCard, Building2, User, StickyNote } from 'lucide-react';
+import { CreditCard, Building2, User, StickyNote, Key } from 'lucide-react';
 import { DataType } from '../types';
 
 interface CategoryIconProps {
@@ -20,6 +20,7 @@ export const CategoryIcon: React.FC<CategoryIconProps> = ({ type, size = 24, cla
     netbanking: <Building2 {...iconProps} />,
     account: <User {...iconProps} />,
     note: <StickyNote {...iconProps} />,
+    password: <Key {...iconProps} />,
   };
 
   return <>{icons[type]}</>;
