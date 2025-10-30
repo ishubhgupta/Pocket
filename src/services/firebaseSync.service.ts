@@ -123,12 +123,12 @@ class FirebaseSyncService {
           const cloudRecord = cloudMap.get(localRecord.id);
           const localUpdateTime = new Date(localRecord.updatedAt).getTime();
 
-          if (!cloudRecord) {
-            // New local record - upload
-            console.log('[Sync] ⬆ Uploading new record:', localRecord.id, localRecord.type);
-            await this.uploadRecord(localRecord);
-            result.uploaded++;
-          } else if (cloudRecord.deleted) {
+                if (!cloudRecord) {
+                  // New local record - upload
+                  console.log('[Sync] ⬆ Uploading new record:', localRecord.id, localRecord.type, 'isPrivate=', localRecord.isPrivate);
+                  await this.uploadRecord(localRecord);
+                  result.uploaded++;
+                } else if (cloudRecord.deleted) {
             // Cloud record is marked deleted - delete local
             console.log('[Sync] 🗑 Cloud record deleted, removing local:', localRecord.id);
             await storageService.deleteRecord(localRecord.id);
@@ -220,10 +220,12 @@ class FirebaseSyncService {
       ...record,
       cloudUpdatedAt: Date.now(),
       deviceId: this.deviceId,
+      isPrivate: record.isPrivate || false,
       serverTimestamp: serverTimestamp()
     };
 
-    await setDoc(recordDoc, cloudRecord);
+    // Use merge to avoid overwriting fields inadvertently and ensure private fields are preserved
+    await setDoc(recordDoc, cloudRecord, { merge: true });
   }
 
   /**
