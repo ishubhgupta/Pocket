@@ -5,7 +5,7 @@ import { useVault } from '../contexts/VaultContext';
 import { useSyncContext } from '../contexts/SyncContext';
 import { storageService } from '../services/storage.service';
 import { dataPortabilityService } from '../services/dataPortability.service';
-import { ArrowLeft, Download, Upload, Trash2, Lock, Unlock, Info, Shield, Search, Cloud, CloudOff } from 'lucide-react';
+import { ArrowLeft, Download, Upload, Trash2, Lock, Unlock, Info, Shield, Search, Cloud, CloudOff, Fingerprint, Scan } from 'lucide-react';
 import animateExpandAndNavigate from '../utils/searchAnim';
 import { Modal } from '../components/Modal';
 import { Toast } from '../components/Toast';
@@ -13,12 +13,13 @@ import { QuickAccessFAB } from '../components/QuickAccessFAB';
 
 export const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { lock, getMasterKey, isAuthenticated } = useAuth();
+  const { lock, getMasterKey, isAuthenticated, biometricAvailability, isBiometricEnabled, enrollBiometric, disableBiometric } = useAuth();
   const { privateRecords, publicRecords } = useVault();
   const { isSignedIn } = useSyncContext();
   const [showClearModal, setShowClearModal] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [isBiometricLoading, setIsBiometricLoading] = useState(false);
 
   const totalRecords = privateRecords.length + publicRecords.length;
   const privateCount = privateRecords.length;
@@ -127,6 +128,32 @@ export const SettingsPage: React.FC = () => {
       setTimeout(() => window.location.reload(), 1500);
     } catch {
       setToast({ message: 'Failed to clear data', type: 'error' });
+    }
+  };
+
+  const handleToggleBiometric = async () => {
+    if (!isAuthenticated) {
+      setToast({ message: 'Please unlock the vault first', type: 'error' });
+      return;
+    }
+
+    setIsBiometricLoading(true);
+    try {
+      if (isBiometricEnabled) {
+        await disableBiometric();
+        setToast({ message: 'Biometric authentication disabled', type: 'success' });
+      } else {
+        await enrollBiometric();
+        setToast({ message: `${biometricAvailability.type === 'face' ? 'Touch ID' : 'Fingerprint'} enabled successfully!`, type: 'success' });
+      }
+    } catch (error) {
+      console.error('Biometric toggle error:', error);
+      setToast({ 
+        message: isBiometricEnabled ? 'Failed to disable biometric' : 'Failed to enable biometric authentication', 
+        type: 'error' 
+      });
+    } finally {
+      setIsBiometricLoading(false);
     }
   };
 
@@ -300,20 +327,83 @@ export const SettingsPage: React.FC = () => {
         {/* Security */}
         <div className="card">
           <h2 className="text-lg font-semibold text-neutral-900 mb-5 font-heading">🔒 Security</h2>
-          <button
-            onClick={lock}
-            className="card-interactive w-full text-left group"
-          >
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-amber-100 rounded-xl group-hover:bg-amber-200 transition-colors">
-                <Lock size={24} className="text-amber-600" />
+          <div className="space-y-3">
+            {/* Biometric Authentication */}
+            {biometricAvailability.available ? (
+              <div className="card-interactive w-full group">
+                <div className="flex items-center gap-4">
+                  <div className={`p-3 rounded-xl transition-colors ${
+                    isBiometricEnabled 
+                      ? 'bg-gradient-to-br from-primary-100 to-purple-100' 
+                      : 'bg-neutral-100 group-hover:bg-neutral-200'
+                  }`}>
+                    {biometricAvailability.type === 'face' ? (
+                      <Scan size={24} className={isBiometricEnabled ? 'text-primary-600' : 'text-neutral-600'} />
+                    ) : (
+                      <Fingerprint size={24} className={isBiometricEnabled ? 'text-primary-600' : 'text-neutral-600'} />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-neutral-900 font-semibold">
+                      {biometricAvailability.type === 'face' ? 'Touch ID' : 'Fingerprint'}
+                    </div>
+                    <div className="text-sm text-neutral-600">
+                      {isBiometricEnabled ? 'Enabled' : 'Quick unlock with biometric'}
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleToggleBiometric}
+                    disabled={isBiometricLoading || !isAuthenticated}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 ${
+                      isBiometricEnabled 
+                        ? 'bg-gradient-to-r from-primary-500 to-primary-600' 
+                        : 'bg-neutral-300'
+                    } ${isBiometricLoading ? 'opacity-50 cursor-wait' : 'cursor-pointer'} ${!isAuthenticated ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform duration-300 ${
+                        isBiometricEnabled ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    >
+                      {isBiometricLoading && (
+                        <span className="absolute inset-0 flex items-center justify-center">
+                          <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                </div>
               </div>
-              <div className="flex-1">
-                <div className="text-neutral-900 font-semibold">Lock Vault</div>
-                <div className="text-sm text-neutral-600">Secure your data immediately</div>
+            ) : (
+              <div className="p-4 glass-effect bg-neutral-100 border border-neutral-200 rounded-xl">
+                <div className="flex gap-3">
+                  <Info size={18} className="text-neutral-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-neutral-700">
+                    <p className="font-semibold mb-1">Biometric Not Available</p>
+                    <p className="text-neutral-600">
+                      Your device doesn't support biometric authentication or it's not configured.
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
-          </button>
+            )}
+
+            {/* Lock Vault */}
+            <button
+              onClick={lock}
+              className="card-interactive w-full text-left group"
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-amber-100 rounded-xl group-hover:bg-amber-200 transition-colors">
+                  <Lock size={24} className="text-amber-600" />
+                </div>
+                <div className="flex-1">
+                  <div className="text-neutral-900 font-semibold">Lock Vault</div>
+                  <div className="text-sm text-neutral-600">Secure your data immediately</div>
+                </div>
+              </div>
+            </button>
+          </div>
         </div>
 
         {/* Danger Zone */}

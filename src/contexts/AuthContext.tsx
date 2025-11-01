@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { cryptoService } from '../services/crypto.service';
 import { storageService } from '../services/storage.service';
+import { biometricService, BiometricAvailability } from '../services/biometric.service';
 import { arrayBufferToBase64 } from '../utils/crypto-helpers';
 import { LOCKOUT_SCHEDULE, AUTO_LOCK_TIMEOUT, KDF_ITERATIONS } from '../utils/constants';
 
@@ -10,12 +11,18 @@ interface AuthContextType {
   lockUntil: Date | null;
   failedAttempts: number;
   isSetup: boolean | null; // null = loading, false = not setup, true = setup
-  setupPin: (pin: string) => Promise<void>;
+  setupPin: (pin: string) => Promise<CryptoKey>;
   authenticate: (pin: string) => Promise<boolean>;
   lock: () => void;
   isLocked: () => boolean;
   checkSetup: () => Promise<void>;
   getMasterKey: () => CryptoKey | null;
+  // Biometric methods
+  biometricAvailability: BiometricAvailability;
+  isBiometricEnabled: boolean;
+  unlockWithBiometric: () => Promise<boolean>;
+  enrollBiometric: (customMasterKey?: CryptoKey) => Promise<void>;
+  disableBiometric: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,8 +42,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [isSetup, setIsSetup] = useState<boolean | null>(null); // null = loading, false = not setup, true = setup
   
+  // Biometric state
+  const [biometricAvailability, setBiometricAvailability] = useState<BiometricAvailability>({ 
+    available: false, 
+    type: 'none' 
+  });
+  const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
+  
   const autoLockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastActivity = useRef<number>(Date.now());
+
+  // Check biometric availability on mount
+  useEffect(() => {
+    const checkBiometric = async () => {
+      const availability = await biometricService.isAvailable();
+      setBiometricAvailability(availability);
+      setIsBiometricEnabled(biometricService.isEnabled());
+    };
+    checkBiometric();
+  }, []);
 
   // Check if app is already set up
   const checkSetup = useCallback(async () => {
@@ -50,7 +74,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // Setup new PIN
-  const setupPin = useCallback(async (pin: string) => {
+  const setupPin = useCallback(async (pin: string): Promise<CryptoKey> => {
     try {
       // Generate new master key
       const newMasterKey = await cryptoService.generateMasterKey();
@@ -83,6 +107,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsSetup(true);
       setFailedAttempts(0);
       resetAutoLockTimer();
+      
+      // Return the master key so it can be used immediately for biometric enrollment
+      return newMasterKey;
     } catch (error) {
       console.error('Setup failed:', error);
       throw new Error('Failed to setup PIN');
@@ -257,6 +284,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [isAuthenticated, resetAutoLockTimer]);
 
+  // Biometric authentication methods
+  const unlockWithBiometric = useCallback(async (): Promise<boolean> => {
+    try {
+      const retrievedKey = await biometricService.authenticate();
+      
+      if (retrievedKey) {
+        setMasterKey(retrievedKey);
+        setIsAuthenticated(true);
+        setFailedAttempts(0);
+        setLockUntil(null);
+        resetAutoLockTimer();
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Biometric unlock failed:', error);
+      return false;
+    }
+  }, [resetAutoLockTimer]);
+
+  const enrollBiometric = useCallback(async (customMasterKey?: CryptoKey): Promise<void> => {
+    const keyToUse = customMasterKey || masterKey;
+    
+    if (!keyToUse) {
+      throw new Error('Must be authenticated to enroll biometric');
+    }
+    
+    try {
+      await biometricService.enroll(keyToUse);
+      setIsBiometricEnabled(true);
+    } catch (error) {
+      console.error('Biometric enrollment failed:', error);
+      throw new Error('Failed to enable biometric authentication');
+    }
+  }, [masterKey]);
+
+  const disableBiometric = useCallback(async (): Promise<void> => {
+    try {
+      await biometricService.disable();
+      setIsBiometricEnabled(false);
+    } catch (error) {
+      console.error('Failed to disable biometric:', error);
+      throw new Error('Failed to disable biometric authentication');
+    }
+  }, []);
+
   const value = {
     isAuthenticated,
     masterKey,
@@ -269,6 +343,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLocked,
     checkSetup,
     getMasterKey: () => masterKey,
+    biometricAvailability,
+    isBiometricEnabled,
+    unlockWithBiometric,
+    enrollBiometric,
+    disableBiometric,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
