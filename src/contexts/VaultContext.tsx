@@ -251,11 +251,18 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         // Note fields
         'title',
         'content',
+        // Note custom fields (label and value)
+        'fields.label',
+        'fields.value',
+        // Additional content boxes
+        'contentBoxes.value',
         // Common fields
         'tags',
       ],
       threshold: 0.4,
       includeScore: true,
+      // Allow searching inside arrays of strings (tags) and nested objects
+      useExtendedSearch: false,
     });
 
     return fuse.search(query).map(result => result.item);

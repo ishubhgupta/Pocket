@@ -4,9 +4,12 @@ interface LogoProps {
   size?: number;
   className?: string;
   variant?: 'full' | 'icon';
+  onClick?: () => void;
 }
 
-export const Logo: React.FC<LogoProps> = ({ size = 40, className = '', variant = 'icon' }) => {
+export const Logo: React.FC<LogoProps> = ({ size = 40, className = '', variant = 'icon', onClick }) => {
+  const handleClick = onClick ? { onClick, style: { cursor: 'pointer' } } : {};
+  
   if (variant === 'icon') {
     return (
       <svg
@@ -16,6 +19,7 @@ export const Logo: React.FC<LogoProps> = ({ size = 40, className = '', variant =
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         className={className}
+        {...handleClick}
       >
         {/* Outer Shield/Pocket Shape */}
         <path
@@ -65,7 +69,7 @@ export const Logo: React.FC<LogoProps> = ({ size = 40, className = '', variant =
   }
 
   return (
-    <div className={`flex items-center gap-3 ${className}`}>
+    <div className={`flex items-center gap-3 ${className}`} {...handleClick}>
       <svg
         width={size}
         height={size}

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useVault } from '../contexts/VaultContext';
 import { useAuth } from '../contexts/AuthContext';
-import { DataType, CardData, NetbankingData, NoteData, PasswordData, NoteField } from '../types';
+import { DataType, CardData, NetbankingData, NoteData, PasswordData, NoteField, ContentBox } from '../types';
 import { ArrowLeft, Save, Plus, X } from 'lucide-react';
 import { Toast } from '../components/Toast';
 import { PrivateDataGuard } from '../components/PrivateDataGuard';
@@ -49,7 +49,20 @@ export const AddRecordPage: React.FC = () => {
   // Note fields
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [contentBoxes, setContentBoxes] = useState<ContentBox[]>([]);
   const [noteFields, setNoteFields] = useState<NoteField[]>([]);
+
+  const addContentBox = () => {
+    setContentBoxes([...contentBoxes, { id: Date.now().toString(), value: '' }]);
+  };
+
+  const updateContentBox = (id: string, newValue: string) => {
+    setContentBoxes(contentBoxes.map(box => box.id === id ? { ...box, value: newValue } : box));
+  };
+
+  const removeContentBox = (id: string) => {
+    setContentBoxes(contentBoxes.filter(box => box.id !== id));
+  };
 
   const addNoteField = () => {
     setNoteFields([...noteFields, { id: Date.now().toString(), label: '', value: '' }]);
@@ -137,6 +150,7 @@ export const AddRecordPage: React.FC = () => {
             tags: tagArray,
             title,
             content,
+            contentBoxes: contentBoxes.filter(box => box.value), // Only include non-empty content boxes
             fields: noteFields.filter(f => f.label || f.value), // Only include non-empty fields
           } as Omit<NoteData, 'id' | 'createdAt' | 'updatedAt'>;
           break;
@@ -147,8 +161,10 @@ export const AddRecordPage: React.FC = () => {
       await addRecord(recordData);
       setToast({ message: 'Record added successfully!', type: 'success' });
       setTimeout(() => navigate(`/category/${type}`), 1500);
-    } catch (error) {
-      setToast({ message: 'Failed to add record', type: 'error' });
+    } catch (error: unknown) {
+      console.error('Failed to add record', error);
+      const message = error instanceof Error ? error.message : 'An unexpected error occurred';
+      setToast({ message: `Failed to add record: ${message}`, type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -377,7 +393,7 @@ export const AddRecordPage: React.FC = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  Account Number (Optional)
+                  Account Number
                 </label>
                 <input
                   type="text"
@@ -388,7 +404,7 @@ export const AddRecordPage: React.FC = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  Profile Password (Optional)
+                  Profile Password
                 </label>
                 <input
                   type="password"
@@ -400,7 +416,7 @@ export const AddRecordPage: React.FC = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  Transaction Password (Optional)
+                  Transaction Password
                 </label>
                 <input
                   type="password"
@@ -430,7 +446,7 @@ export const AddRecordPage: React.FC = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  Website URL (Optional)
+                  Website URL
                 </label>
                 <input
                   type="url"
@@ -491,17 +507,70 @@ export const AddRecordPage: React.FC = () => {
                 <textarea
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  rows={6}
-                  className="w-full px-4 py-2 input-field rounded-lg text-neutral-900 resize-none"
+                  className="w-full px-4 py-2 input-field rounded-lg text-neutral-900 resize-none max-h-40 overflow-y-auto"
                   placeholder="General notes or description..."
+                  style={{ minHeight: '120px' }}
                 />
+              </div>
+
+              {/* Additional Content Boxes */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-sm font-medium text-neutral-700">
+                    Additional Content
+                  </label>
+                  <button
+                    type="button"
+                    onClick={addContentBox}
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                  >
+                    <Plus size={16} />
+                    Add Content Box
+                  </button>
+                </div>
+                
+                {contentBoxes.length === 0 && (
+                  <div className="text-center py-6 bg-neutral-50 border border-neutral-200 border-dashed rounded-lg">
+                    <p className="text-sm text-neutral-500">
+                      Add more content sections to organize your note
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  {contentBoxes.map((box, index) => (
+                    <div key={box.id} className="card p-4">
+                      <div className="flex gap-3">
+                        <div className="flex-1">
+                          <label className="block text-xs font-medium text-neutral-600 mb-2">
+                            Content {index + 2}
+                          </label>
+                          <textarea
+                            value={box.value}
+                            onChange={(e) => updateContentBox(box.id, e.target.value)}
+                            placeholder="Additional content..."
+                            className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-neutral-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none max-h-40 overflow-y-auto"
+                            style={{ minHeight: '100px' }}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeContentBox(box.id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors self-start"
+                        >
+                          <X size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Custom Fields */}
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <label className="block text-sm font-medium text-neutral-700">
-                    Custom Fields (Optional)
+                    Custom Fields
                   </label>
                   <button
                     type="button"
@@ -559,7 +628,7 @@ export const AddRecordPage: React.FC = () => {
           {/* Tags */}
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-2">
-              Tags (Optional)
+              Tags
             </label>
             <input
               type="text"

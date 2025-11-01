@@ -5,12 +5,15 @@ import { useVault } from '../contexts/VaultContext';
 import { useSyncContext } from '../contexts/SyncContext';
 import { CategoryIcon } from '../components/CategoryIcon';
 import { Logo } from '../components/Logo';
-import { Lock, Search, Settings, Cloud, CloudOff } from 'lucide-react';
-import { DataType } from '../types';
+import { QuickAccessFAB } from '../components/QuickAccessFAB';
+import { StarredNotes } from '../components/StarredNotes';
+import { Lock, Unlock, Search, Settings, Cloud, CloudOff } from 'lucide-react';
+import animateExpandAndNavigate from '../utils/searchAnim';
+import { DataType, NoteData } from '../types';
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const { lock } = useAuth();
+  const { lock, isAuthenticated } = useAuth();
   const { privateRecords, publicRecords, loadData } = useVault();
   const { isSignedIn } = useSyncContext();
 
@@ -31,13 +34,24 @@ export const DashboardPage: React.FC = () => {
     return { privateCount, publicCount, total: privateCount + publicCount };
   };
 
+  // Get starred notes
+  const starredNotes = [...privateRecords, ...publicRecords]
+    .filter((r): r is NoteData => r.type === 'note' && (r as NoteData).isStarred === true);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-neutral-100 to-neutral-200">
       {/* Header */}
       <div className="glass-effect border-b border-neutral-200/50 sticky top-0 z-10 backdrop-blur-xl">
         <div className="max-w-4xl mx-auto px-4 py-5 flex items-center justify-between">
-          <Logo variant="full" size={36} />
+          <Logo variant="full" size={36} onClick={() => navigate('/dashboard')} />
           <div className="flex gap-2">
+            <button
+              onClick={(e) => animateExpandAndNavigate(e.currentTarget as HTMLElement, '/search', navigate)}
+              className="p-2.5 glass-effect hover:bg-primary-50 text-primary-600 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-sm"
+              aria-label="Search"
+            >
+              <Search size={22} />
+            </button>
             <button
               onClick={() => navigate('/sync')}
               className={`p-2.5 glass-effect rounded-xl transition-all hover:scale-105 active:scale-95 shadow-sm ${
@@ -51,13 +65,6 @@ export const DashboardPage: React.FC = () => {
               {isSignedIn ? <Cloud size={22} /> : <CloudOff size={22} />}
             </button>
             <button
-              onClick={() => navigate('/search')}
-              className="p-2.5 glass-effect hover:bg-primary-50 text-primary-600 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-sm"
-              aria-label="Search"
-            >
-              <Search size={22} />
-            </button>
-            <button
               onClick={() => navigate('/settings')}
               className="p-2.5 glass-effect hover:bg-neutral-200/50 text-neutral-700 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-sm"
               aria-label="Settings"
@@ -66,10 +73,18 @@ export const DashboardPage: React.FC = () => {
             </button>
             <button
               onClick={lock}
-              className="p-2.5 glass-effect hover:bg-red-50 text-red-600 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-sm"
+              className={`p-2.5 glass-effect rounded-xl transition-all hover:scale-105 active:scale-95 shadow-sm ${
+                isAuthenticated 
+                  ? 'hover:bg-green-50 text-green-600' 
+                  : 'hover:bg-red-50 text-red-600'
+              }`}
               aria-label="Lock"
             >
-              <Lock size={22} />
+              {isAuthenticated ? (
+                <Unlock size={22} className="animate-pulse" />
+              ) : (
+                <Lock size={22} />
+              )}
             </button>
           </div>
         </div>
@@ -77,6 +92,7 @@ export const DashboardPage: React.FC = () => {
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 py-8">
+        {/* Category Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8 animate-fade-in">
           {categories.map(({ type, label, bgClass }) => {
             const { privateCount, publicCount, total } = getCount(type);
@@ -124,23 +140,12 @@ export const DashboardPage: React.FC = () => {
           })}
         </div>
 
-        {/* Info Message */}
-        <div className="card mb-6 animate-fade-in">
-          <h2 className="text-lg font-semibold text-neutral-900 mb-2 font-heading">📝 Quick Tip</h2>
-          <p className="text-neutral-600 text-sm leading-relaxed">
-            Click on any category above to view and manage your records. Use the + button in each category to add new items.
-          </p>
-        </div>
-
-        {/* Security Info Card */}
-        <div className="glass-effect border border-primary-200 bg-gradient-to-br from-primary-50 to-primary-100/50 rounded-2xl p-6 shadow-md animate-fade-in">
-          <h3 className="text-lg font-semibold text-primary-900 mb-2.5 font-heading">🔒 Your Data is Secure</h3>
-          <p className="text-sm text-primary-800 leading-relaxed">
-            All private data is encrypted with AES-256 and stored locally on your device. 
-            Your information never leaves your browser.
-          </p>
-        </div>
+        {/* Starred Notes Section */}
+        <StarredNotes notes={starredNotes} />
       </div>
+
+      {/* Quick Access FAB */}
+      <QuickAccessFAB />
     </div>
   );
 };

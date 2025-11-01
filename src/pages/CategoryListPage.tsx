@@ -6,6 +6,7 @@ import { RecordData, DataType } from '../types';
 import { CategoryIcon } from '../components/CategoryIcon';
 import { SecurityBadge } from '../components/SecurityBadge';
 import { PrivateDataGuard } from '../components/PrivateDataGuard';
+import { QuickAccessFAB } from '../components/QuickAccessFAB';
 import { ArrowLeft, Plus, Eye, Search, X } from 'lucide-react';
 
 export const CategoryListPage: React.FC = () => {
@@ -369,6 +370,9 @@ export const CategoryListPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Quick Access FAB */}
+      <QuickAccessFAB />
     </div>
   );
 

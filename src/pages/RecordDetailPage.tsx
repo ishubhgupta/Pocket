@@ -4,7 +4,7 @@ import { useVault } from '../contexts/VaultContext';
 import { useAuth } from '../contexts/AuthContext';
 import { RecordData } from '../types';
 import { storageService } from '../services/storage.service';
-import { ArrowLeft, Trash2, Eye, EyeOff, Edit } from 'lucide-react';
+import { ArrowLeft, Trash2, Eye, EyeOff, Edit, Star } from 'lucide-react';
 import { CopyButton } from '../components/CopyButton';
 import { SecurityBadge } from '../components/SecurityBadge';
 import { Modal } from '../components/Modal';
@@ -14,7 +14,7 @@ import { PrivateDataGuard } from '../components/PrivateDataGuard';
 export const RecordDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { privateRecords, publicRecords, deleteRecord } = useVault();
+  const { privateRecords, publicRecords, deleteRecord, updateRecord } = useVault();
   const { isAuthenticated } = useAuth();
   const [record, setRecord] = useState<RecordData | null>(null);
   const [isPrivateRecord, setIsPrivateRecord] = useState<boolean | null>(null);
@@ -59,8 +59,8 @@ export const RecordDetailPage: React.FC = () => {
     }
   }, [isAuthenticated, id, privateRecords, publicRecords, record, isPrivateRecord]);
 
-  const toggleFieldVisibility = (field: string) => {
-    setVisibleFields((prev) => {
+  const toggleVisibility = (field: string) => {
+    setVisibleFields(prev => {
       const newSet = new Set(prev);
       if (newSet.has(field)) {
         newSet.delete(field);
@@ -69,6 +69,22 @@ export const RecordDetailPage: React.FC = () => {
       }
       return newSet;
     });
+  };
+
+  const toggleStar = async () => {
+    if (!record || record.type !== 'note') return;
+    
+    try {
+      await updateRecord(record.id, { isStarred: !record.isStarred });
+      setRecord({ ...record, isStarred: !record.isStarred });
+      setToast({ 
+        message: !record.isStarred ? 'Note starred!' : 'Star removed', 
+        type: 'success' 
+      });
+    } catch (error) {
+      console.error('Failed to toggle star:', error);
+      setToast({ message: 'Failed to update note', type: 'error' });
+    }
   };
 
   const handleDelete = async () => {
@@ -114,7 +130,7 @@ export const RecordDetailPage: React.FC = () => {
           </div>
           {sensitive && fieldKey && (
             <button
-              onClick={() => toggleFieldVisibility(fieldKey)}
+              onClick={() => toggleVisibility(fieldKey)}
               className="p-2.5 glass-effect hover:bg-neutral-200/50 rounded-xl transition-all hover:scale-105 active:scale-95"
             >
               {isVisible ? <EyeOff size={20} className="text-neutral-600" /> : <Eye size={20} className="text-neutral-600" />}
@@ -150,6 +166,19 @@ export const RecordDetailPage: React.FC = () => {
               </div>
             </div>
             <div className="flex gap-2">
+              {record.type === 'note' && (
+                <button
+                  onClick={toggleStar}
+                  className={`p-2.5 rounded-xl shadow-md hover:shadow-lg transition-all hover:scale-105 active:scale-95 ${
+                    record.isStarred 
+                      ? 'bg-amber-500 hover:bg-amber-600' 
+                      : 'bg-neutral-300 hover:bg-neutral-400'
+                  }`}
+                  aria-label={record.isStarred ? 'Remove star' : 'Add star'}
+                >
+                  <Star size={20} className={record.isStarred ? 'text-white fill-white' : 'text-neutral-700'} />
+                </button>
+              )}
               <button
                 onClick={() => navigate(`/edit/${record.id}`)}
                 className="p-2.5 btn-primary shadow-md hover:shadow-lg transition-all"
@@ -230,10 +259,26 @@ export const RecordDetailPage: React.FC = () => {
               {record.content && (
                 <div className="space-y-2 animate-fade-in">
                   <label className="block text-sm font-medium text-neutral-700">Content</label>
-                  <div className="input-field text-neutral-900 whitespace-pre-wrap min-h-[100px]">
+                  <div className="input-field text-neutral-900 whitespace-pre-wrap max-h-32 overflow-y-auto" style={{ minHeight: '80px' }}>
                     {record.content}
                   </div>
                   <CopyButton text={record.content} label="Copy Content" />
+                </div>
+              )}
+
+              {/* Additional Content Boxes */}
+              {record.contentBoxes && record.contentBoxes.length > 0 && (
+                <div className="space-y-3 animate-fade-in">
+                  <label className="block text-sm font-semibold text-neutral-800">Additional Content</label>
+                  {record.contentBoxes.map((box, index) => (
+                    <div key={box.id} className="space-y-2">
+                      <label className="block text-xs font-medium text-neutral-600">Content {index + 2}</label>
+                      <div className="input-field text-neutral-900 whitespace-pre-wrap max-h-32 overflow-y-auto" style={{ minHeight: '80px' }}>
+                        {box.value}
+                      </div>
+                      <CopyButton text={box.value} label={`Copy Content ${index + 2}`} />
+                    </div>
+                  ))}
                 </div>
               )}
 
