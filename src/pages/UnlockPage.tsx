@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Logo } from '../components/Logo';
 import { AlertTriangle, Fingerprint, Scan } from 'lucide-react';
@@ -18,6 +18,10 @@ export const UnlockPage: React.FC = () => {
     unlockWithBiometric,
   } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get the return path from location state, default to dashboard
+  const returnTo = (location.state as any)?.returnTo || '/dashboard';
 
   useEffect(() => {
     if (lockUntil) {
@@ -45,7 +49,7 @@ export const UnlockPage: React.FC = () => {
 
     const success = await authenticate(pin);
     if (success) {
-      navigate('/dashboard');
+      navigate(returnTo);
     } else {
       setError('Incorrect PIN');
       setPin('');
@@ -59,7 +63,7 @@ export const UnlockPage: React.FC = () => {
     try {
       const success = await unlockWithBiometric();
       if (success) {
-        navigate('/dashboard');
+        navigate(returnTo);
       } else {
         setError('Biometric authentication failed');
       }
@@ -175,7 +179,7 @@ export const UnlockPage: React.FC = () => {
                     value={pin}
                     onChange={(e) => setPin(e.target.value)}
                     className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-lg text-neutral-900 text-center text-xl tracking-widest focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
-                    placeholder="••••"
+                    placeholder="••••••"
                     maxLength={6}
                     autoFocus={!(biometricAvailability.available && isBiometricEnabled)}
                     required
