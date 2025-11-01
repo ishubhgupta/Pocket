@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Logo } from '../components/Logo';
@@ -8,16 +8,8 @@ export const SetupPage: React.FC = () => {
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [error, setError] = useState('');
-  const [enableBiometric, setEnableBiometric] = useState(false);
   const { setupPin, biometricAvailability, enrollBiometric } = useAuth();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    // Pre-check if biometric is available and pre-enable the checkbox
-    if (biometricAvailability.available) {
-      setEnableBiometric(true);
-    }
-  }, [biometricAvailability.available]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,10 +31,10 @@ export const SetupPage: React.FC = () => {
       const newMasterKey = await setupPin(pin);
       console.log('[Setup] PIN setup successful, master key generated');
       
-      // Now we can enroll biometric with the fresh master key
-      if (enableBiometric && biometricAvailability.available) {
+      // Automatically enroll biometric if available (no user choice needed)
+      if (biometricAvailability.available) {
         try {
-          console.log('[Setup] Attempting biometric enrollment...');
+          console.log('[Setup] Biometric available, auto-enrolling...');
           await enrollBiometric(newMasterKey);
           console.log('[Setup] Biometric enrollment successful');
         } catch (bioError) {
@@ -121,34 +113,26 @@ export const SetupPage: React.FC = () => {
               </div>
             )}
 
-            {/* Biometric Enrollment Option */}
+            {/* Biometric Info (auto-enabled if available) */}
             {biometricAvailability.available && (
               <div className="pt-2">
-                <label className="flex items-center gap-3 p-4 bg-gradient-to-r from-primary-50 to-purple-50 border border-primary-200 rounded-lg cursor-pointer hover:bg-primary-100 transition-colors group">
-                  <input
-                    type="checkbox"
-                    checked={enableBiometric}
-                    onChange={(e) => setEnableBiometric(e.target.checked)}
-                    className="w-5 h-5 rounded border-primary-300 text-primary-600 focus:ring-2 focus:ring-primary-500 cursor-pointer"
-                  />
-                  <div className="flex items-center gap-3 flex-1">
-                    <div className="p-2 bg-white rounded-lg shadow-sm group-hover:shadow transition-shadow">
-                      {biometricAvailability.type === 'face' ? (
-                        <Scan size={20} className="text-primary-600" />
-                      ) : (
-                        <Fingerprint size={20} className="text-primary-600" />
-                      )}
+                <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-primary-50 to-purple-50 border border-primary-200 rounded-lg">
+                  <div className="p-2 bg-white rounded-lg shadow-sm">
+                    {biometricAvailability.type === 'face' ? (
+                      <Scan size={20} className="text-primary-600" />
+                    ) : (
+                      <Fingerprint size={20} className="text-primary-600" />
+                    )}
+                  </div>
+                  <div className="text-sm flex-1">
+                    <div className="font-semibold text-neutral-800">
+                      {biometricAvailability.type === 'face' ? 'Touch ID' : 'Fingerprint'} Detected
                     </div>
-                    <div className="text-sm">
-                      <div className="font-semibold text-neutral-800">
-                        Enable {biometricAvailability.type === 'face' ? 'Touch ID' : 'Fingerprint'}
-                      </div>
-                      <div className="text-xs text-neutral-600">
-                        Quick unlock with biometric authentication
-                      </div>
+                    <div className="text-xs text-neutral-600">
+                      Will be automatically enabled for quick unlock
                     </div>
                   </div>
-                </label>
+                </div>
               </div>
             )}
 

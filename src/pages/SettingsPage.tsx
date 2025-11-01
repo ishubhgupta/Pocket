@@ -132,24 +132,31 @@ export const SettingsPage: React.FC = () => {
   };
 
   const handleToggleBiometric = async () => {
-    if (!isAuthenticated) {
-      setToast({ message: 'Please unlock the vault first', type: 'error' });
-      return;
-    }
-
     setIsBiometricLoading(true);
     try {
       if (isBiometricEnabled) {
         await disableBiometric();
         setToast({ message: 'Biometric authentication disabled', type: 'success' });
       } else {
+        // Check if authenticated before enrolling
+        if (!isAuthenticated) {
+          setIsBiometricLoading(false);
+          // Redirect to unlock page with return path
+          navigate('/unlock', { state: { returnTo: '/settings' } });
+          return;
+        }
+        
+        console.log('[Settings] Attempting to enable biometric...');
         await enrollBiometric();
+        console.log('[Settings] Biometric enabled successfully');
         setToast({ message: `${biometricAvailability.type === 'face' ? 'Touch ID' : 'Fingerprint'} enabled successfully!`, type: 'success' });
       }
     } catch (error) {
-      console.error('Biometric toggle error:', error);
+      console.error('[Settings] Biometric toggle error:', error);
       setToast({ 
-        message: isBiometricEnabled ? 'Failed to disable biometric' : 'Failed to enable biometric authentication', 
+        message: isBiometricEnabled 
+          ? 'Failed to disable biometric' 
+          : `Failed to enable biometric: ${error instanceof Error ? error.message : 'Unknown error'}`, 
         type: 'error' 
       });
     } finally {
@@ -353,12 +360,12 @@ export const SettingsPage: React.FC = () => {
                   </div>
                   <button
                     onClick={handleToggleBiometric}
-                    disabled={isBiometricLoading || !isAuthenticated}
+                    disabled={isBiometricLoading}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 ${
                       isBiometricEnabled 
                         ? 'bg-gradient-to-r from-primary-500 to-primary-600' 
                         : 'bg-neutral-300'
-                    } ${isBiometricLoading ? 'opacity-50 cursor-wait' : 'cursor-pointer'} ${!isAuthenticated ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    } ${isBiometricLoading ? 'opacity-50 cursor-wait' : 'cursor-pointer'}`}
                   >
                     <span
                       className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform duration-300 ${
