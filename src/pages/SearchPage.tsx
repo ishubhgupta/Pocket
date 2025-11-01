@@ -2,15 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useVault } from '../contexts/VaultContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useSyncContext } from '../contexts/SyncContext';
 import { RecordData, DataType } from '../types';
-import { ArrowLeft, Search as SearchIcon, X, Lock } from 'lucide-react';
+import { ArrowLeft, Search as SearchIcon, X, Lock, Unlock, Settings, Cloud, CloudOff } from 'lucide-react';
 import { SecurityBadge } from '../components/SecurityBadge';
 import { CategoryIcon } from '../components/CategoryIcon';
+import { QuickAccessFAB } from '../components/QuickAccessFAB';
 
 export const SearchPage: React.FC = () => {
   const navigate = useNavigate();
   const { searchRecords } = useVault();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, lock } = useAuth();
+  const { isSignedIn } = useSyncContext();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<RecordData[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -68,7 +71,14 @@ export const SearchPage: React.FC = () => {
       case 'netbanking':
         return record.loginId;
       case 'note':
-        return record.content.slice(0, 60) + (record.content.length > 60 ? '...' : '');
+        if (record.content && record.content.length > 0) {
+          return record.content.slice(0, 60) + (record.content.length > 60 ? '...' : '');
+        }
+        if (record.contentBoxes && record.contentBoxes.length > 0) {
+          const first = record.contentBoxes[0].value || '';
+          return first.slice(0, 60) + (first.length > 60 ? '...' : '');
+        }
+        return '';
       default:
         return '';
     }
@@ -114,6 +124,42 @@ export const SearchPage: React.FC = () => {
                   <X size={20} />
                 </button>
               )}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => navigate('/settings')}
+                className="hidden md:flex p-2.5 glass-effect hover:bg-neutral-200/50 text-neutral-700 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-sm"
+                aria-label="Settings"
+              >
+                <Settings size={22} />
+              </button>
+              <button
+                onClick={() => navigate('/sync')}
+                className={`hidden md:flex p-2.5 glass-effect rounded-xl transition-all hover:scale-105 active:scale-95 shadow-sm ${
+                  isSignedIn 
+                    ? 'hover:bg-green-50 text-green-600' 
+                    : 'hover:bg-neutral-200/50 text-neutral-700'
+                }`}
+                aria-label="Cloud Sync"
+                title={isSignedIn ? 'Sync Active' : 'Enable Sync'}
+              >
+                {isSignedIn ? <Cloud size={22} /> : <CloudOff size={22} />}
+              </button>
+              <button
+                onClick={lock}
+                className={`hidden md:flex p-2.5 glass-effect rounded-xl transition-all hover:scale-105 active:scale-95 shadow-sm ${
+                  isAuthenticated 
+                    ? 'hover:bg-green-50 text-green-600' 
+                    : 'hover:bg-red-50 text-red-600'
+                }`}
+                aria-label="Lock"
+              >
+                {isAuthenticated ? (
+                  <Unlock size={22} className="animate-pulse" />
+                ) : (
+                  <Lock size={22} />
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -213,6 +259,9 @@ export const SearchPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Quick Access FAB */}
+      <QuickAccessFAB />
     </div>
   );
 };

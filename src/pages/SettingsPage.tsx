@@ -2,16 +2,20 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useVault } from '../contexts/VaultContext';
+import { useSyncContext } from '../contexts/SyncContext';
 import { storageService } from '../services/storage.service';
 import { dataPortabilityService } from '../services/dataPortability.service';
-import { ArrowLeft, Download, Upload, Trash2, Lock, Info, Shield } from 'lucide-react';
+import { ArrowLeft, Download, Upload, Trash2, Lock, Unlock, Info, Shield, Search, Cloud, CloudOff } from 'lucide-react';
+import animateExpandAndNavigate from '../utils/searchAnim';
 import { Modal } from '../components/Modal';
 import { Toast } from '../components/Toast';
+import { QuickAccessFAB } from '../components/QuickAccessFAB';
 
 export const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { lock, getMasterKey } = useAuth();
+  const { lock, getMasterKey, isAuthenticated } = useAuth();
   const { privateRecords, publicRecords } = useVault();
+  const { isSignedIn } = useSyncContext();
   const [showClearModal, setShowClearModal] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isImporting, setIsImporting] = useState(false);
@@ -131,16 +135,54 @@ export const SettingsPage: React.FC = () => {
       {/* Header */}
       <div className="glass-effect border-b border-neutral-200/50 sticky top-0 z-10 backdrop-blur-xl">
         <div className="max-w-4xl mx-auto px-4 py-5">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate(-1)}
-              className="p-2 hover:bg-neutral-200/50 rounded-xl transition-all hover:scale-105 active:scale-95"
-            >
-              <ArrowLeft size={24} className="text-neutral-700" />
-            </button>
-            <div>
-              <h1 className="text-2xl font-bold text-neutral-900 font-heading">Settings</h1>
-              <p className="text-sm text-neutral-600">Manage your vault</p>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => navigate(-1)}
+                className="p-2 hover:bg-neutral-200/50 rounded-xl transition-all hover:scale-105 active:scale-95"
+              >
+                <ArrowLeft size={24} className="text-neutral-700" />
+              </button>
+              <div>
+                <h1 className="text-2xl font-bold text-neutral-900 font-heading">Settings</h1>
+                <p className="text-sm text-neutral-600">Manage your vault</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={(e) => animateExpandAndNavigate(e.currentTarget as HTMLElement, '/search', navigate)}
+                className="p-2.5 glass-effect hover:bg-primary-50 text-primary-600 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-sm"
+                aria-label="Search"
+              >
+                <Search size={22} />
+              </button>
+              <button
+                onClick={() => navigate('/sync')}
+                className={`p-2.5 glass-effect rounded-xl transition-all hover:scale-105 active:scale-95 shadow-sm ${
+                  isSignedIn 
+                    ? 'hover:bg-green-50 text-green-600' 
+                    : 'hover:bg-neutral-200/50 text-neutral-700'
+                }`}
+                aria-label="Cloud Sync"
+                title={isSignedIn ? 'Sync Active' : 'Enable Sync'}
+              >
+                {isSignedIn ? <Cloud size={22} /> : <CloudOff size={22} />}
+              </button>
+              <button
+                onClick={lock}
+                className={`p-2.5 glass-effect rounded-xl transition-all hover:scale-105 active:scale-95 shadow-sm ${
+                  isAuthenticated 
+                    ? 'hover:bg-green-50 text-green-600' 
+                    : 'hover:bg-red-50 text-red-600'
+                }`}
+                aria-label="Lock"
+              >
+                {isAuthenticated ? (
+                  <Unlock size={22} className="animate-pulse" />
+                ) : (
+                  <Lock size={22} />
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -290,40 +332,6 @@ export const SettingsPage: React.FC = () => {
             </div>
           </button>
         </div>
-
-        {/* Info */}
-        <div className="glass-effect bg-gradient-to-br from-primary-50 to-purple-50 border-2 border-primary-200 rounded-2xl p-6 shadow-md">
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-primary-100 rounded-xl">
-              <Info size={28} className="text-primary-600" />
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-neutral-900 mb-2.5 font-heading">About Pocket</h3>
-              <p className="text-sm text-neutral-700 leading-relaxed mb-4">
-                Pocket is a secure, offline personal information manager. All your data is encrypted with AES-256 
-                and stored locally on your device. Your information never leaves your browser.
-              </p>
-              <div className="grid grid-cols-2 gap-3 text-xs text-neutral-600">
-                <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 bg-primary-500 rounded-full"></div>
-                  <span>Version: 1.0.0</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 bg-primary-500 rounded-full"></div>
-                  <span>Encryption: AES-GCM-256</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 bg-primary-500 rounded-full"></div>
-                  <span>Storage: IndexedDB (Local)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 bg-primary-500 rounded-full"></div>
-                  <span>Privacy: 100% Offline</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Clear Data Modal */}
@@ -339,6 +347,9 @@ export const SettingsPage: React.FC = () => {
       />
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+      {/* Quick Access FAB */}
+      <QuickAccessFAB />
     </div>
   );
 };

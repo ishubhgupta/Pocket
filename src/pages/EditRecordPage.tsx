@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useVault } from '../contexts/VaultContext';
 import { useAuth } from '../contexts/AuthContext';
-import { RecordData, DataType, NoteField } from '../types';
+import { RecordData, DataType, NoteField, ContentBox } from '../types';
 import { storageService } from '../services/storage.service';
 import { ArrowLeft, Save, Plus, X } from 'lucide-react';
 import { Toast } from '../components/Toast';
@@ -43,6 +43,7 @@ export const EditRecordPage: React.FC = () => {
   // Note fields
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [contentBoxes, setContentBoxes] = useState<ContentBox[]>([]);
   const [noteFields, setNoteFields] = useState<NoteField[]>([]);
 
   // Password fields
@@ -54,6 +55,18 @@ export const EditRecordPage: React.FC = () => {
   // Netbanking additional fields
   const [profilePassword, setProfilePassword] = useState('');
   const [transactionPassword, setTransactionPassword] = useState('');
+
+  const addContentBox = () => {
+    setContentBoxes([...contentBoxes, { id: Date.now().toString(), value: '' }]);
+  };
+
+  const updateContentBox = (id: string, newValue: string) => {
+    setContentBoxes(contentBoxes.map(box => box.id === id ? { ...box, value: newValue } : box));
+  };
+
+  const removeContentBox = (id: string) => {
+    setContentBoxes(contentBoxes.filter(box => box.id !== id));
+  };
 
   const addNoteField = () => {
     setNoteFields([...noteFields, { id: Date.now().toString(), label: '', value: '' }]);
@@ -119,6 +132,7 @@ export const EditRecordPage: React.FC = () => {
         case 'note':
           setTitle(found.title);
           setContent(found.content);
+          setContentBoxes(found.contentBoxes || []);
           setNoteFields(found.fields || []);
           break;
         case 'password':
@@ -208,6 +222,7 @@ export const EditRecordPage: React.FC = () => {
             tags: tagArray,
             title,
             content,
+            contentBoxes: contentBoxes.filter(box => box.value), // Only include non-empty content boxes
             fields: noteFields.filter(f => f.label || f.value), // Only include non-empty fields
           };
           break;
@@ -496,7 +511,7 @@ export const EditRecordPage: React.FC = () => {
                   type="password"
                   value={profilePassword}
                   onChange={(e) => setProfilePassword(e.target.value)}
-                  placeholder="Optional profile password"
+                  placeholder="For profile login if different"
                   className="w-full px-4 py-2 input-field rounded-lg text-neutral-900"
                 />
               </div>
@@ -509,7 +524,7 @@ export const EditRecordPage: React.FC = () => {
                   type="password"
                   value={transactionPassword}
                   onChange={(e) => setTransactionPassword(e.target.value)}
-                  placeholder="Optional transaction password"
+                  placeholder="For transactions if different"
                   className="w-full px-4 py-2 input-field rounded-lg text-neutral-900"
                 />
               </div>
@@ -534,7 +549,7 @@ export const EditRecordPage: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  Website URL (Optional)
+                  Website URL
                 </label>
                 <input
                   type="url"
@@ -598,17 +613,70 @@ export const EditRecordPage: React.FC = () => {
                 <textarea
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  rows={6}
                   placeholder="General notes or description..."
-                  className="w-full px-4 py-2 input-field rounded-lg text-neutral-900 resize-none"
+                  className="w-full px-4 py-2 input-field rounded-lg text-neutral-900 resize-none max-h-40 overflow-y-auto"
+                  style={{ minHeight: '120px' }}
                 />
+              </div>
+
+              {/* Additional Content Boxes */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-sm font-medium text-neutral-700">
+                    Additional Content
+                  </label>
+                  <button
+                    type="button"
+                    onClick={addContentBox}
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                  >
+                    <Plus size={16} />
+                    Add Content Box
+                  </button>
+                </div>
+                
+                {contentBoxes.length === 0 && (
+                  <div className="text-center py-6 bg-neutral-50 border border-neutral-200 border-dashed rounded-lg">
+                    <p className="text-sm text-neutral-500">
+                      Add more content sections to organize your note
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  {contentBoxes.map((box, index) => (
+                    <div key={box.id} className="card p-4">
+                      <div className="flex gap-3">
+                        <div className="flex-1">
+                          <label className="block text-xs font-medium text-neutral-600 mb-2">
+                            Content {index + 2}
+                          </label>
+                          <textarea
+                            value={box.value}
+                            onChange={(e) => updateContentBox(box.id, e.target.value)}
+                            placeholder="Additional content..."
+                            className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-neutral-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none max-h-40 overflow-y-auto"
+                            style={{ minHeight: '100px' }}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeContentBox(box.id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors self-start"
+                        >
+                          <X size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Custom Fields */}
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <label className="block text-sm font-medium text-neutral-700">
-                    Custom Fields (Optional)
+                    Custom Fields
                   </label>
                   <button
                     type="button"

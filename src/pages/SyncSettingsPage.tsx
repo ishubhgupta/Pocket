@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { useSyncContext } from '../contexts/SyncContext';
-import { ArrowLeft, Cloud, CloudOff, RefreshCw, CheckCircle, AlertCircle, LogOut, User } from 'lucide-react';
+import { ArrowLeft, CloudOff, RefreshCw, CheckCircle, AlertCircle, LogOut, User, Search, Settings, Lock, Unlock } from 'lucide-react';
+import animateExpandAndNavigate from '../utils/searchAnim';
 import { Toast } from '../components/Toast';
+import { QuickAccessFAB } from '../components/QuickAccessFAB';
 
 export const SyncSettingsPage: React.FC = () => {
   const navigate = useNavigate();
+  const { lock, isAuthenticated } = useAuth();
   const { user, isSignedIn, isSyncing, lastSyncTime, signInWithGoogle, signOut, syncNow, resetAndSync, syncResult } = useSyncContext();
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -14,19 +18,19 @@ export const SyncSettingsPage: React.FC = () => {
       await signInWithGoogle();
       setToast({ message: 'Successfully signed in with Google!', type: 'success' });
     } catch (error) {
+      console.error(error);
       setToast({ message: 'Failed to sign in. Please try again.', type: 'error' });
     }
   };
-
   const handleSignOut = async () => {
     try {
       await signOut();
       setToast({ message: 'Successfully signed out', type: 'success' });
     } catch (error) {
+      console.error(error);
       setToast({ message: 'Failed to sign out', type: 'error' });
     }
   };
-
   const handleSync = async () => {
     try {
       await syncNow();
@@ -36,15 +40,16 @@ export const SyncSettingsPage: React.FC = () => {
         setToast({ message: 'Sync completed with some errors', type: 'error' });
       }
     } catch (error) {
+      console.error(error);
       setToast({ message: 'Sync failed', type: 'error' });
     }
   };
-
   const handleResetAndSync = async () => {
     try {
       await resetAndSync();
       setToast({ message: 'Sync reset and completed!', type: 'success' });
     } catch (error) {
+      console.error(error);
       setToast({ message: 'Reset sync failed', type: 'error' });
     }
   };
@@ -66,16 +71,49 @@ export const SyncSettingsPage: React.FC = () => {
       {/* Header */}
       <div className="glass-effect border-b border-neutral-200/50 sticky top-0 z-10 backdrop-blur-xl">
         <div className="max-w-4xl mx-auto px-4 py-5">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="p-2 hover:bg-neutral-200/50 rounded-xl transition-all hover:scale-105 active:scale-95"
-            >
-              <ArrowLeft size={24} className="text-neutral-700" />
-            </button>
-            <div>
-              <h1 className="text-2xl font-bold text-neutral-900 font-heading">Cloud Sync</h1>
-              <p className="text-sm text-neutral-600">Sync your data across devices</p>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="p-2 hover:bg-neutral-200/50 rounded-xl transition-all hover:scale-105 active:scale-95"
+              >
+                <ArrowLeft size={24} className="text-neutral-700" />
+              </button>
+              <div>
+                <h1 className="text-2xl font-bold text-neutral-900 font-heading">Cloud Sync</h1>
+                <p className="text-sm text-neutral-600">Sync your data across devices</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={(e) => animateExpandAndNavigate(e.currentTarget as HTMLElement, '/search', navigate)}
+                className="p-2.5 glass-effect hover:bg-primary-50 text-primary-600 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-sm"
+                aria-label="Search"
+              >
+                <Search size={22} />
+              </button>
+              <button
+                onClick={() => navigate('/settings')}
+                className="p-2.5 glass-effect hover:bg-neutral-200/50 text-neutral-700 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-sm"
+                aria-label="Settings"
+              >
+                <Settings size={22} />
+              </button>
+              <button
+                onClick={lock}
+                className={`p-2.5 glass-effect rounded-xl transition-all hover:scale-105 active:scale-95 shadow-sm ${
+                  isAuthenticated 
+                    ? 'hover:bg-green-50 text-green-600' 
+                    : 'hover:bg-red-50 text-red-600'
+                }`}
+                aria-label="Lock"
+              >
+                {isAuthenticated ? (
+                  <Unlock size={22} className="animate-pulse" />
+                ) : (
+                  <Lock size={22} />
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -236,39 +274,14 @@ export const SyncSettingsPage: React.FC = () => {
                 </div>
               )}
             </div>
-
-            {/* Info Card */}
-            <div className="card animate-slide-up" style={{ animationDelay: '0.2s' }}>
-              <h3 className="text-lg font-semibold text-neutral-900 mb-4">How Cloud Sync Works</h3>
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <Cloud size={20} className="text-primary-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-neutral-900">Automatic Synchronization</p>
-                    <p className="text-xs text-neutral-600 mt-1">Your data automatically syncs when you sign in or make changes</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle size={20} className="text-green-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-neutral-900">End-to-End Encryption</p>
-                    <p className="text-xs text-neutral-600 mt-1">All data is encrypted with your PIN before uploading to cloud</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <RefreshCw size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-neutral-900">Conflict Resolution</p>
-                    <p className="text-xs text-neutral-600 mt-1">Newest changes are kept when same record is modified on multiple devices</p>
-                  </div>
-                </div>
-              </div>
-            </div>
           </>
         )}
       </div>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+      {/* Quick Access FAB */}
+      <QuickAccessFAB />
     </div>
   );
 };

@@ -56,11 +56,18 @@ export interface NoteField {
   value: string;
 }
 
+export interface ContentBox {
+  id: string;
+  value: string;
+}
+
 export interface NoteData extends BaseRecord {
   type: 'note';
   title: string;
   content: string;
+  contentBoxes?: ContentBox[];
   fields?: NoteField[];
+  isStarred?: boolean;
 }
 
 export type RecordData = CardData | NetbankingData | NoteData | PasswordData;
