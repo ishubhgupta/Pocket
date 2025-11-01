@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useVault } from '../contexts/VaultContext';
-import { Lock, AlertCircle } from 'lucide-react';
+import { Lock, AlertCircle, Fingerprint, Scan } from 'lucide-react';
 
 interface PrivateDataGuardProps {
   children: React.ReactNode;
@@ -9,11 +9,32 @@ interface PrivateDataGuardProps {
 }
 
 export const PrivateDataGuard: React.FC<PrivateDataGuardProps> = ({ children, onUnlock }) => {
-  const { isAuthenticated, authenticate, lockUntil, failedAttempts } = useAuth();
+  const { isAuthenticated, authenticate, lockUntil, failedAttempts, biometricAvailability, isBiometricEnabled, unlockWithBiometric } = useAuth();
   const { loadData } = useVault();
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [biometricLoading, setBiometricLoading] = useState(false);
+
+  const handleBiometricUnlock = async () => {
+    setBiometricLoading(true);
+    setError('');
+    
+    try {
+      const success = await unlockWithBiometric();
+      if (success) {
+        await loadData();
+        onUnlock?.();
+      } else {
+        setError('Biometric authentication failed. Please use PIN.');
+      }
+    } catch (err) {
+      console.error('Biometric unlock error:', err);
+      setError('Biometric authentication failed. Please use PIN.');
+    } finally {
+      setBiometricLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,6 +76,46 @@ export const PrivateDataGuard: React.FC<PrivateDataGuardProps> = ({ children, on
           <p className="text-neutral-600 text-sm">Enter your PIN to view private data</p>
         </div>
 
+        {/* Biometric Unlock */}
+        {biometricAvailability.available && isBiometricEnabled && !isLocked && (
+          <div className="mb-6">
+            <button
+              type="button"
+              onClick={handleBiometricUnlock}
+              disabled={biometricLoading}
+              className="w-full py-4 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-semibold rounded-xl transition-all hover:scale-[1.02] active:scale-98 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-3"
+            >
+              {biometricLoading ? (
+                <>
+                  <span className="inline-block h-5 w-5 animate-spin rounded-full border-3 border-white border-t-transparent" />
+                  <span>Authenticating...</span>
+                </>
+              ) : (
+                <>
+                  {biometricAvailability.type === 'face' ? (
+                    <Scan size={22} strokeWidth={2} />
+                  ) : (
+                    <Fingerprint size={22} strokeWidth={2} />
+                  )}
+                  <span>Unlock with {biometricAvailability.type === 'face' ? 'Touch ID' : 'Fingerprint'}</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* OR Divider */}
+        {biometricAvailability.available && isBiometricEnabled && !isLocked && (
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-neutral-300"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-4 bg-white text-neutral-500 font-medium">OR</span>
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-2 text-left">
@@ -65,7 +126,7 @@ export const PrivateDataGuard: React.FC<PrivateDataGuardProps> = ({ children, on
               value={pin}
               onChange={(e) => setPin(e.target.value)}
               maxLength={6}
-              autoFocus
+              autoFocus={!(biometricAvailability.available && isBiometricEnabled)}
               disabled={isLocked || loading}
               className="input-field text-center text-3xl tracking-widest py-4 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
               placeholder="••••••"
@@ -97,7 +158,11 @@ export const PrivateDataGuard: React.FC<PrivateDataGuardProps> = ({ children, on
           <button
             type="submit"
             disabled={isLocked || loading || pin.length === 0}
-            className="btn-primary w-full py-3 disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`w-full py-3 font-semibold rounded-xl transition-all hover:scale-[1.02] active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 ${
+              biometricAvailability.available && isBiometricEnabled
+                ? 'bg-neutral-200 hover:bg-neutral-300 text-neutral-800'
+                : 'bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white shadow-sm'
+            }`}
           >
             {loading ? 'Verifying...' : isLocked ? 'Locked' : 'Unlock'}
           </button>
